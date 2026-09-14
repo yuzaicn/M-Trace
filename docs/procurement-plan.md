@@ -1,6 +1,6 @@
 # 首版指纹库采购清单（GUCH-362）
 
-状态：`pending-budget-approval`。这是采集前的冻结候选，不代表已发起任何真实请求。价格按厂商公开标准（非 fast/priority、非缓存、非 batch 折扣）核对，计价日 2026-09-15；人民币换算采用 `1 USD = ¥6.7743`。
+状态：`pending-budget-approval`。这是采集前的冻结候选，不代表已发起任何真实请求。**不按发布日期硬筛**：先用厂商官方模型列表/控制台集合确认可用性，再逐个用最便宜的一次 challenge 试打；本轮预算未批，所有 `probeAt` 为空、`probeResult` 为 `pending-budget`（本地条目为 `pending-local-runtime`），不得把候选写成已探活。价格按厂商公开标准（非 fast/priority、非缓存、非 batch 折扣）核对，计价日 2026-09-15；人民币换算采用 `1 USD = ¥6.7743`。
 
 ## 统一测算口径
 
@@ -53,6 +53,33 @@
 | router-mixture-02       | 自建 OpenAI-compatible 路由     | `mtrace-router-stablelm-phi35-v1`           | routing/mixture / 固定 50:50 |                 0 / 0 |       12,000 / 53,432 |           ¥0.00 | 独立部署；每请求按 seed 在 StableLM-2-Zephyr 与 Phi-3.5-mini 间确定性路由；构造即 unknown |
 
 库外付费小计：hosted ¥10.48，near-negative ¥24.05；本地/路由 ¥0.00。全部 32 个身份合计 **¥111.58**，低于 ¥1200 硬顶，未削减模型数或采样量。
+
+## 可用性、稳定性与探活状态（逐条对应上表）
+
+| 槽位                    | 型号 ID                                     | ID 状态                      | 预览/快速迭代 | 探活时间 | 探活结果                |
+| ----------------------- | ------------------------------------------- | ---------------------------- | ------------- | -------- | ----------------------- |
+| hosted-unrepresented-01 | `gemini-3.6-flash`                          | rolling model ID             | 否            | —        | `pending-budget`        |
+| hosted-unrepresented-02 | `gemini-2.5-pro`                            | rolling model ID             | 否            | —        | `pending-budget`        |
+| hosted-unrepresented-03 | `grok-4.6`                                  | rolling model ID             | 否            | —        | `pending-budget`        |
+| hosted-unrepresented-04 | `grok-4.3`                                  | stable model ID              | 否            | —        | `pending-budget`        |
+| hosted-unrepresented-05 | `deepseek-flash`                            | documented alias → version   | 否            | —        | `pending-budget`        |
+| hosted-unrepresented-06 | `deepseek-v4-pro`                           | stable model ID              | 否            | —        | `pending-budget`        |
+| near-negative-01        | `gpt-5-nano-2025-08-07`                     | dated snapshot               | 否            | —        | `pending-budget`        |
+| near-negative-02        | `gpt-4.1-2025-04-14`                        | dated snapshot               | 否            | —        | `pending-budget`        |
+| near-negative-03        | `gpt-4o-2024-11-20`                         | dated snapshot               | 否            | —        | `pending-budget`        |
+| near-negative-04        | `claude-sonnet-4-5-20250929`                | dated snapshot               | 否            | —        | `pending-budget`        |
+| near-negative-05        | `claude-haiku-4-5-20251001`                 | dated snapshot               | 否            | —        | `pending-budget`        |
+| near-negative-06        | `claude-opus-4-5-20251101`                  | dated snapshot               | 否            | —        | `pending-budget`        |
+| local-open-01           | `Qwen/Qwen3-4B`                             | pinned HF revision           | 否            | —        | `pending-local-runtime` |
+| local-open-02           | `google/gemma-3-4b-it`                      | pinned HF revision           | 否            | —        | `pending-local-runtime` |
+| local-open-03           | `microsoft/Phi-4-mini-instruct`             | pinned HF revision           | 否            | —        | `pending-local-runtime` |
+| local-open-04           | `HuggingFaceTB/SmolLM2-1.7B-Instruct`       | pinned HF revision           | 否            | —        | `pending-local-runtime` |
+| local-open-05           | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | pinned HF revision           | 否            | —        | `pending-local-runtime` |
+| local-open-06           | `meta-llama/Llama-3.2-3B-Instruct`          | pinned HF revision           | 否            | —        | `pending-local-runtime` |
+| router-mixture-01       | `mtrace-router-qwen25-tinyllama-v1`         | fixed independent deployment | 否            | —        | `pending-local-runtime` |
+| router-mixture-02       | `mtrace-router-stablelm-phi35-v1`           | fixed independent deployment | 否            | —        | `pending-local-runtime` |
+
+探活执行条件：预算批复后先拉官方模型列表并记录时间，再复用 `m-trace-collect` 以 `--variants 1 --replicates 1` 做一次最便宜的格式挑战；HTTP 404/403/参数不兼容直接标失败并记录原因。采集完成后第 14 天做漂移复测，超阈值只增发新的 `bankVersion`，不覆盖旧指纹。
 
 ## 采购与冻结约束
 

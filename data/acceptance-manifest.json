@@ -2,7 +2,7 @@
   "manifestVersion": "1.0",
   "status": "frozen-before-collection",
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:8dffb1a33829849f8c48aaedf2d284cb7ba6e564d91e23c76a2c082903ea0617",
+  "contentHash": "sha256:8cd233ac5c324d58aeff5ebadcc8cee70bb9649fa16acb8fc9bec9c5261a6eb9",
   "rules": {
     "minimumResponsesPerModel": 3,
     "minimumEnvironmentsPerModel": 3,
@@ -10,6 +10,14 @@
     "noAliasOrSnapshotOverlapWithBank": true,
     "noQuantizedInBankVariant": true,
     "routingGate": "unknown-by-construction"
+  },
+  "probePolicy": {
+    "listSource": "vendor-official-model-list-or-console",
+    "probeCommand": "m-trace-collect --protocol ... --base-url ... --model ... --key-env ... --variants 1 --replicates 1",
+    "probeCostMode": "pending-owner-budget",
+    "probeMustUseFirstParty": true,
+    "driftReviewAfterDays": 14,
+    "driftAction": "issue-new-bankVersion; never overwrite prior bank"
   },
   "slots": [
     {
@@ -211,6 +219,168 @@
         "microsoft/Phi-3.5-mini-instruct"
       ],
       "serving": "deterministic seed routing; unknown by construction"
+    }
+  ],
+  "availability": [
+    {
+      "slotId": "hosted-unrepresented-01",
+      "modelId": "gemini-3.6-flash",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "hosted-unrepresented-02",
+      "modelId": "gemini-2.5-pro",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "hosted-unrepresented-03",
+      "modelId": "grok-4.6",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "hosted-unrepresented-04",
+      "modelId": "grok-4.3",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "hosted-unrepresented-05",
+      "modelId": "deepseek-flash",
+      "idStatus": "documented-alias-to-version",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "hosted-unrepresented-06",
+      "modelId": "deepseek-v4-pro",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-01",
+      "modelId": "gpt-5-nano-2025-08-07",
+      "idStatus": "dated-snapshot",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-02",
+      "modelId": "gpt-4.1-2025-04-14",
+      "idStatus": "dated-snapshot",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-03",
+      "modelId": "gpt-4o-2024-11-20",
+      "idStatus": "dated-snapshot",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-04",
+      "modelId": "claude-sonnet-4-5-20250929",
+      "idStatus": "dated-snapshot",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-05",
+      "modelId": "claude-haiku-4-5-20251001",
+      "idStatus": "dated-snapshot",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-06",
+      "modelId": "claude-opus-4-5-20251101",
+      "idStatus": "dated-snapshot",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "local-open-01",
+      "modelId": "Qwen/Qwen3-4B",
+      "idStatus": "pinned-hf-revision",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
+    },
+    {
+      "slotId": "local-open-02",
+      "modelId": "google/gemma-3-4b-it",
+      "idStatus": "pinned-hf-revision",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
+    },
+    {
+      "slotId": "local-open-03",
+      "modelId": "microsoft/Phi-4-mini-instruct",
+      "idStatus": "pinned-hf-revision",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
+    },
+    {
+      "slotId": "local-open-04",
+      "modelId": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "idStatus": "pinned-hf-revision",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
+    },
+    {
+      "slotId": "local-open-05",
+      "modelId": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+      "idStatus": "pinned-hf-revision",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
+    },
+    {
+      "slotId": "local-open-06",
+      "modelId": "meta-llama/Llama-3.2-3B-Instruct",
+      "idStatus": "pinned-hf-revision",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
+    },
+    {
+      "slotId": "router-mixture-01",
+      "modelId": "mtrace-router-qwen25-tinyllama-v1",
+      "idStatus": "fixed-independent-deployment",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
+    },
+    {
+      "slotId": "router-mixture-02",
+      "modelId": "mtrace-router-stablelm-phi35-v1",
+      "idStatus": "fixed-independent-deployment",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-local-runtime"
     }
   ]
 }
