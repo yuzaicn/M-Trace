@@ -1,0 +1,124 @@
+{
+  "$comment": "契约夹具清单 / Contract fixture manifest. 本文件是「契约意图 → 测试」的对照表。它存在的理由：契约里的每一条硬要求都必须能被一个具名测试指出来，否则契约只是文档。新增契约条款 → 必须在此登记一条 intent。",
+  "schemaVersion": 1,
+  "interfaceVersion": "1.0",
+  "categories": [
+    {
+      "id": "golden",
+      "path": "test/fixtures/golden/",
+      "purpose": "库内模型的确定性回归：由上游录制夹具跑 full pipeline，期望结论写在每个用例的 expect.json 里。",
+      "dataStatus": "placeholder",
+      "dataStatusNote": "GUCH-362 采到真实数据前，此目录只有 schema 与一个最小样例；L6 夹具回归门禁在数据到位前不阻塞。"
+    },
+    {
+      "id": "adversarial",
+      "path": "test/fixtures/adversarial/",
+      "purpose": "人工构造的篡改样本：改写、截断、伪造自报、非流式降级、库外模型。每一条的期望结论都必须是 unknown 或 ambiguous —— 库外硬归因是零容忍失败。",
+      "dataStatus": "placeholder"
+    },
+    {
+      "id": "upstream",
+      "path": "test/fixtures/upstream/",
+      "purpose": "录制的原始响应（JSONL），只读、提交进仓库。L4 的 mock server 与 L6 的夹具回归共享这一份数据。",
+      "dataStatus": "placeholder"
+    }
+  ],
+  "intents": [
+    {
+      "id": "I-01",
+      "clause": "契约 §3.2 —— 错误码到退出码的映射必须是全函数",
+      "test": "test/contract/exit-codes.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-02",
+      "clause": "契约 §5 —— 退出码数值冻结，判定类结果与故障类结果不共用码",
+      "test": "test/contract/exit-codes.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-03",
+      "clause": "契约 §3.1 —— 未知 flag 必须报用法错误，不得静默忽略",
+      "test": "test/contract/argv.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-04",
+      "clause": "契约 §3.1 —— 无子命令时默认为 detect（P0-1 的一条命令可用）",
+      "test": "test/contract/argv.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-05",
+      "clause": "契约 §6 —— 实现里不得出现阈值字面量；判据参数只能来自库",
+      "test": "test/contract/no-magic-numbers.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-06",
+      "clause": "契约 §6 —— 除入口与传输层外，src 下不得触网、不得读时钟、不得用全局随机",
+      "test": "test/contract/purity.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-07",
+      "clause": "契约 §7 —— 与分发渠道解耦：不得用 require.resolve 定位包根，不得依赖 node_modules 布局",
+      "test": "test/contract/decoupling.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-08",
+      "clause": "契约 §4 —— 隐私红线：auth.json 只允许判存在，永不允许读值",
+      "test": "test/contract/privacy.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-09",
+      "clause": "契约 §2.2 —— 「无法判定」是一等公民：unknown 与 ambiguous 是联合类型的一支，不是错误",
+      "test": "test/contract/verdict-shape.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-10",
+      "clause": "契约 §8 —— 库哈希的规范化序列化必须确定性且与键序无关",
+      "test": "test/contract/canonical.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-11",
+      "clause": "契约 §2.1 —— 路线分层：A 为 P0 必实现，C/D 为 P1 预留，B 为 P2 仅留位",
+      "test": "test/contract/route-layering.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-12",
+      "clause": "契约 §8 —— 证据包必须自带可复验所需的全部输入（库哈希 + 校准版本 + 指纹版本）",
+      "test": "test/contract/evidence-shape.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-13",
+      "clause": "契约 §9 —— 引用分析结论时必须携带置信度限制（未实测项不得写成已证实）",
+      "test": "test/contract/limitations.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-14",
+      "clause": "契约 §4 —— 报告不得含凭据、绝对路径、外部 URL、可执行脚本",
+      "test": "test/contract/report-safety.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-16",
+      "clause": "契约 §7 —— 发布产物：只发 src 构建、shim 按相对自身解析、解包到任何位置可运行",
+      "test": "test/contract/release.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-15",
+      "clause": "契约 §6 —— 验收夹具必须常驻「库外模型落到 unknown」这一回归点",
+      "test": "test/contract/fixtures.test.ts",
+      "priority": "P0"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "$comment": "发布构建：只编译 src/。测试走 tsconfig.tests.json，产物不进发布物。",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -1,0 +1,123 @@
+{
+  "$comment": "最小参考指纹库样例 / Minimal reference-bank sample. 这不是真实采集数据 —— 真实库由 GUCH-362 产出。它的作用是固定**结构**，让阶段 3 的实现与测试有共同的形状可依。数值全部是占位符，不携带任何真实模型的指纹特征。",
+  "schemaVersion": 1,
+  "bankVersion": "0.0.0-sample",
+  "extractorVersion": "0.0.0-sample",
+  "suiteVersion": "0.0.0-sample",
+  "featureRegistry": [
+    {
+      "key": "chi-square-over-df",
+      "familyId": "integer-sequence",
+      "direction": "lower",
+      "envSensitive": false,
+      "priority": "P0"
+    },
+    {
+      "key": "lag1-autocorrelation",
+      "familyId": "integer-sequence",
+      "direction": "lower",
+      "envSensitive": false,
+      "priority": "P0"
+    },
+    {
+      "key": "distinct-ratio",
+      "familyId": "integer-sequence",
+      "direction": "higher",
+      "envSensitive": false,
+      "priority": "P0"
+    },
+    {
+      "key": "count-vector-hellinger-centroid",
+      "familyId": "integer-sequence",
+      "direction": "nonmonotonic",
+      "envSensitive": false,
+      "priority": "P0"
+    }
+  ],
+  "calibration": {
+    "calibrationVersion": "0.0.0-sample",
+    "attribution": {
+      "maxDistance": 0.5,
+      "minMargin": 0.02,
+      "minRelativeMargin": 0.1,
+      "minConfidence": 0.6,
+      "maxDistanceFamily": 0.7
+    },
+    "credibility": {
+      "ranges": {
+        "chi-square-over-df": [0.1, 1.2],
+        "lag1-autocorrelation": [-0.85, -0.05],
+        "distinct-ratio": [0.8, 1.0],
+        "repeat-rate": [0.0, 0.2]
+      },
+      "minPassingSignals": 2,
+      "maxFailingSignals": 3,
+      "bootstrapIters": 200
+    },
+    "quality": {
+      "minValidRatio": 0.6,
+      "minFamilySamples": 3,
+      "minGradeForAttribution": "fair"
+    },
+    "maxRewrittenRatio": 0.3
+  },
+  "entries": [
+    {
+      "entryId": "sample-family-a/entry-1",
+      "declaredModel": "sample-model-a",
+      "familyId": "sample-family-a",
+      "environmentLabel": "sample-env-1",
+      "collectedOn": "2026-01-01",
+      "sampleCounts": { "integer-sequence": 3 },
+      "features": [
+        {
+          "familyId": "integer-sequence",
+          "validSamples": 3,
+          "attemptedSamples": 3,
+          "features": {
+            "chi-square-over-df": 0.33,
+            "lag1-autocorrelation": -0.59,
+            "distinct-ratio": 0.95,
+            "count-vector-hellinger-centroid": 0.1
+          },
+          "uncertainty": {
+            "chi-square-over-df": 0.04,
+            "lag1-autocorrelation": 0.05
+          },
+          "degradedReasons": []
+        }
+      ]
+    },
+    {
+      "entryId": "sample-family-b/entry-1",
+      "declaredModel": "sample-model-b",
+      "familyId": "sample-family-b",
+      "environmentLabel": "sample-env-1",
+      "collectedOn": "2026-01-01",
+      "sampleCounts": { "integer-sequence": 1 },
+      "features": [
+        {
+          "familyId": "integer-sequence",
+          "validSamples": 1,
+          "attemptedSamples": 3,
+          "features": {
+            "chi-square-over-df": 0.41,
+            "lag1-autocorrelation": -0.51,
+            "distinct-ratio": 0.93,
+            "count-vector-hellinger-centroid": 0.2
+          },
+          "uncertainty": {},
+          "degradedReasons": ["few-samples"]
+        }
+      ]
+    }
+  ],
+  "integrity": {
+    "contentHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "producedBy": "m-trace fixture generator 0.0.0-sample"
+  },
+  "limitations": [
+    "limits.sample-fixture-not-real-data",
+    "limits.closed-set-attribution"
+  ]
+}

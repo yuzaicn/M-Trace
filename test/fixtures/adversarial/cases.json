@@ -1,0 +1,104 @@
+{
+  "$comment": "对抗性夹具 / Adversarial fixture. 这些用例**必须**落到 unknown 或 ambiguous —— 它们是「库外模型不得被硬归因」这条硬约束的回归点。每发现一种新的网关规避手法，都必须在这里加一条。",
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "caseId": "out-of-library-model",
+      "source": "test/fixtures/upstream/out-of-library.jsonl",
+      "attack": "none",
+      "description": "库外模型的正常采样输出。第一段绝对可信度应通过（它确实是模型采样），第二段距离门槛必须拒判。",
+      "expected": {
+        "decision": "unknown",
+        "abstention": "out-of-library",
+        "stage": "attribution"
+      },
+      "why": "分析实测：13 个库外模型 36/36 被硬归因，这正是本项目要修的第一个缺陷。"
+    },
+    {
+      "caseId": "uniform-resampled",
+      "source": "test/fixtures/upstream/uniform-resampled.jsonl",
+      "attack": "uniform-resampling",
+      "description": "服务端对数值做均匀重采样，消除了顺序与重复结构。",
+      "expected": {
+        "decision": "unknown",
+        "abstention": "implausible-as-sampling",
+        "stage": "credibility"
+      },
+      "why": "分析实测：均匀重采样后库内准确率 0.073。必须在第一段就被拦下，而不是被归因给某个库内条目。"
+    },
+    {
+      "caseId": "additive-jitter-sigma2",
+      "source": "test/fixtures/upstream/jitter-sigma2.jsonl",
+      "attack": "additive-jitter",
+      "description": "对每个输出数字叠加 ±2 的整数噪声。",
+      "expected": {
+        "decision": "unknown",
+        "abstention": "out-of-library",
+        "stage": "attribution"
+      },
+      "why": "分析实测：σ=2 把库内准确率从 0.989 打到 0.486。工具的诚实做法是承认证据已不足以支撑归因。"
+    },
+    {
+      "caseId": "gateway-rewritten-prose",
+      "source": "test/fixtures/upstream/rewritten-prose.jsonl",
+      "attack": "content-rewrite",
+      "description": "网关在 JSON 前后包裹解释性文字，并要求模型改写输出格式。",
+      "expected": {
+        "decision": "unknown",
+        "abstention": "content-rewritten",
+        "stage": "input-validation"
+      },
+      "why": "改写比例超限时，证据本身不可信；此时给出任何归因都是把网关的行为算在模型头上。"
+    },
+    {
+      "caseId": "fenced-json-tolerated",
+      "source": "test/fixtures/upstream/fenced-json.jsonl",
+      "attack": "content-rewrite-benign",
+      "description": "网关把 JSON 包进 markdown 代码块围栏，但内容未被改动。",
+      "expected": {
+        "decision": "in-library",
+        "claimedModel": "sample-model-a",
+        "minConfidence": 0.6,
+        "stage": "attribution"
+      },
+      "why": "容错解析是能力：围栏是格式差异而非证据破坏。此条与上一条成对，用来确认实现没有把「一切改写都判死」。"
+    },
+    {
+      "caseId": "all-non-stream",
+      "source": "test/fixtures/upstream/non-stream.jsonl",
+      "attack": "non-stream-degradation",
+      "description": "服务端忽略 stream: true，全部样本非流式。",
+      "expected": {
+        "decision": "unknown",
+        "abstention": "insufficient-evidence",
+        "stage": "input-validation"
+      },
+      "why": "流式节奏类特征整族缺席，quality 应降级为 poor 并短路。"
+    },
+    {
+      "caseId": "self-report-conflict",
+      "source": "test/fixtures/upstream/self-report-conflict.jsonl",
+      "attack": "declared-model-spoofing",
+      "description": "端点自报为模型 A，但观测归因到模型 B。",
+      "expected": {
+        "decision": "in-library",
+        "claimedModel": "sample-model-b",
+        "selfReportAgreement": false,
+        "exitCode": 12
+      },
+      "why": "自报永不作为判定依据，只作旁证；冲突时退出码抬到 12 —— 这是 CI 识别「便宜中转 key」的落点。"
+    },
+    {
+      "caseId": "empty-response",
+      "source": "test/fixtures/upstream/empty.jsonl",
+      "attack": "empty-body",
+      "description": "端点返回 200 但内容为空。",
+      "expected": {
+        "decision": "unknown",
+        "abstention": "insufficient-evidence",
+        "exitCode": 4
+      },
+      "why": "空体不是「无法判定」，是「没拿到证据」；两者的报告措辞与退出码都必须不同。"
+    }
+  ]
+}
