@@ -12,7 +12,7 @@ test('CLI help includes English, Chinese, and the version', async () => {
     { encoding: 'utf8' },
   );
 
-  assert.match(stdout, /m-trace 0\.0\.0/);
+  assert.match(stdout, /m-trace 0\.0\.1/);
   assert.match(stdout, /Usage/);
   assert.match(stdout, /用法/);
 });

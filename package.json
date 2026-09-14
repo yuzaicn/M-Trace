@@ -1,6 +1,6 @@
 {
   "name": "m-trace",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Trace and verify the model identity behind AI coding interactions.",
   "type": "module",
   "bin": {
