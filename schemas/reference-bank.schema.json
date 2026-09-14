@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://m-trace.dev/schemas/reference-bank-v1.json",
+  "title": "M-Trace reference fingerprint bank",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "bankVersion",
+    "extractorVersion",
+    "suiteVersion",
+    "contentHash",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "bankVersion": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$"
+    },
+    "extractorVersion": { "type": "string" },
+    "suiteVersion": { "type": "string" },
+    "contentHash": { "$ref": "#/$defs/hash" },
+    "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entryId",
+        "bankVersion",
+        "contentHash",
+        "modelId",
+        "modelFamily",
+        "collectedAt",
+        "environments",
+        "fingerprint",
+        "calibration"
+      ],
+      "properties": {
+        "entryId": { "type": "string" },
+        "bankVersion": { "type": "string" },
+        "contentHash": { "$ref": "#/$defs/hash" },
+        "modelId": { "type": "string" },
+        "modelFamily": { "type": "string" },
+        "providerHint": { "type": "string" },
+        "collectedAt": { "type": "string", "format": "date-time" },
+        "environments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["environmentId", "wireFormat", "sampleCount"],
+            "properties": {
+              "environmentId": { "type": "string" },
+              "wireFormat": { "enum": ["openai", "anthropic"] },
+              "sampleCount": { "type": "integer", "minimum": 1 },
+              "wrapperId": { "type": "string" }
+            }
+          }
+        },
+        "fingerprint": { "type": "object" },
+        "calibration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxDistance", "minMargin", "frozenAt", "sampleCount"],
+          "properties": {
+            "maxDistance": { "type": "number", "minimum": 0, "maximum": 1 },
+            "minMargin": { "type": "number", "minimum": 0, "maximum": 1 },
+            "frozenAt": { "type": "string", "format": "date-time" },
+            "sampleCount": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    }
+  }
+}
