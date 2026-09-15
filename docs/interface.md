@@ -1,8 +1,13 @@
 # M-Trace interface baseline
 
-**Interface version: 2.0.0 — FROZEN (data and protocol layer).**
+**Interface version: 2.1.0 — FROZEN (data and protocol layer).**
 
 This document freezes the data formats, version axes, sampling semantics, and verdict semantics that every module must implement against. Module-level API signatures, error-code enumeration, and the report data model are **not yet frozen**; they follow in a separate section before implementation of the attribution engine begins. Any change to a frozen section requires a version bump here plus explicit notice to every consuming module.
+
+Changelog:
+
+- **2.1.0** — adds the `openai-responses` request shape (for models not served on Chat Completions) and the mandatory `transport` provenance field with the tunnel-egress rule. Amended before any bank artifact exists; no collected data predates it.
+- **2.0.0** — initial data/protocol-layer freeze.
 
 ## 1. Version axes
 
@@ -19,8 +24,9 @@ Rationale for the suite major bump: suite 1.x fixed the sampling temperature per
 
 - `samplingSource` ∈ `provider-default` | `challenge-parameter`. Suite 2.0.0 bank and acceptance collection **must** use `provider-default`. `challenge-parameter` exists only for local mock and regression fixtures.
 - Under `provider-default` the collector sends **no sampling parameters at all** — no `temperature`, no `top_p` — to any model, including models that would accept them. Output budget uses `max_completion_tokens` (never `max_tokens`). Reasoning control travels via `generationOptions` (`reasoning_effort`). The collector rejects generation options that conflict with this mode; that guard is normative.
-- `requestShape` ∈ `openai-chat-completions` | `openai-reasoning-chat-completions` | `anthropic-messages`. The shape actually used is recorded per response; drift review must be able to distinguish "provider default changed" from "our request shape changed".
-- Official-collection guard: bank collection for OpenAI models must target origin `https://api.openai.com` exactly, with no extra path and no proxy. Shared gateways, mirrors, and resellers are forbidden sources for reference data.
+- `requestShape` ∈ `openai-chat-completions` | `openai-reasoning-chat-completions` | `openai-responses` | `anthropic-messages`. The shape actually used is recorded per response; drift review must be able to distinguish "provider default changed" from "our request shape changed".
+- **`openai-responses` (2.1.0):** used only for models that the provider does not serve on Chat Completions (Responses-only tiers). `POST /v1/responses`; output budget uses that API's native `max_output_tokens`; reasoning control uses its native `reasoning: { effort }`. All `provider-default` rules apply unchanged: no `temperature`, no `top_p`. A model keeps exactly one request shape per bank entry; the shape is chosen by provider availability, never by preference.
+- Official-collection guard: bank collection for OpenAI models must terminate TLS at origin `https://api.openai.com` exactly, with no extra path. Shared gateways, mirrors, and resellers are forbidden sources for reference data — they hold their own keys and may swap backends. A **transport-level HTTP CONNECT tunnel** is permitted when direct egress is blocked, provided TLS still terminates at `api.openai.com` and our own key is used; the tunnel moves encrypted bytes only, and its use is recorded in provenance (§3), never omitted.
 
 ## 3. Provenance record (raw JSONL, normalized JSONL, and bank entry)
 
@@ -33,7 +39,10 @@ requestShape       see §2
 generationOptions  object               // provider-specific options actually sent, echoed verbatim
 usage              object | null        // provider-reported usage, including reasoning-token detail when present
 systemFingerprint  string | null
+transport          'direct' | 'tunnel'  // NEW in 2.1.0; per response in JSONL records
 ```
+
+Bank entries summarize transport as `'direct' | 'tunnel' | 'mixed'` across their responses. The field is mandatory wherever provenance is recorded; a tunnel is never silently normalized to direct.
 
 Records never contain API keys, authorization headers, base URLs, or local paths. Raw response bodies remain sensitive working data.
 
@@ -56,7 +65,7 @@ frozenAt           date-time
 sampleCount        integer
 ```
 
-- Entry-level provenance: `samplingSource`, `requestShape`, `effort`, and `generationOptions` are recorded per entry (one protocol and shape per entry in 0.0.1).
+- Entry-level provenance: `samplingSource`, `requestShape`, `effort`, `generationOptions`, and `transport` (§3 summary form) are recorded per entry (one protocol and shape per entry in 0.0.1). Schema `1.1` is amended in place for `transport` — no 1.1 artifact predates the amendment.
 - **`contentHash` semantics:** canonicalization removes `contentHash` keys at every depth, so the bank-level hash covers the three version fields plus every entry, and each entry hash covers that entry. The hash defends against tampering, **not** against wholesale replacement of an entry by another internally-consistent entry; replacement is defended by `entryId` uniqueness. Any change to any entry requires recomputing the bank-level hash.
 - Threshold values ship in the bank, never in source code.
 
