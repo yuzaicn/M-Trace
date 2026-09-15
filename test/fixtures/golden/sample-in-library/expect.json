@@ -1,0 +1,26 @@
+{
+  "$comment": "归因夹具的期望结论 / Expected verdict for a golden fixture. 阶段 3 的夹具回归（L6）会遍历本目录下的每个用例，走 normalize → extractFingerprint → attribute（**不触网**），再与 expect.json 比对。三条硬规则写在文件里而不是代码里，因为它们是契约的一部分。",
+  "schemaVersion": 1,
+  "caseId": "sample-in-library",
+  "source": "test/fixtures/upstream/sample-in-library.jsonl",
+  "note": "占位用例：真实录制数据由 GUCH-362 产出。此文件固定的是**判据的形状**，不是真实模型的结论。",
+  "expected": {
+    "decision": "in-library",
+    "claimedModel": "sample-model-a",
+    "minConfidence": 0.6,
+    "stage": "attribution"
+  },
+  "acceptance": {
+    "zeroFalseAttribution": {
+      "rule": "若 expected.decision 为 unknown 或 ambiguous，而实现给出 in-library，则门禁失败 —— 无论总体准确率多高。",
+      "rationale": "库外模型被硬归因是本项目要修的那个缺陷；误报一次就永久摧毁工具可信度。"
+    },
+    "stability": {
+      "rule": "同一条夹具重复运行必须得到逐字节相同的候选列表与置信度。",
+      "rationale": "否则报告的第三方复验不可能成立。"
+    },
+    "noMagicThresholds": {
+      "rule": "判定所用阈值必须来自库文件的 calibration 字段，代码里不得出现字面量。"
+    }
+  }
+}

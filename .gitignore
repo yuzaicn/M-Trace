@@ -5,6 +5,7 @@ dist/
 .env.*
 !.env.example
 *.log
+*.tgz
 .DS_Store
 .idea/
 .vscode/

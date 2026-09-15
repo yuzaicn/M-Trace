@@ -1,0 +1,10 @@
+{
+  "$comment": "运行测试用的构建：把 src/ 与 test/ 一起编译到 dist/。**产物不打包发布** —— 发布用 tsconfig.release.json。分开的理由：契约测试要把 test/ 编译进来，而发布物里只应有 src/。",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

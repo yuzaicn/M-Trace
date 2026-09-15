@@ -3,20 +3,35 @@
   "version": "0.0.1",
   "description": "Trace and verify the model identity behind AI coding interactions.",
   "type": "module",
+  "license": "MIT",
   "bin": {
     "m-trace": "./bin/m-trace.js"
   },
+  "files": [
+    "dist/src/",
+    "data/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "build": "node --check bin/m-trace.js",
-    "lint": "eslint . && prettier --check .",
-    "test": "node --test"
+    "check": "tsc -p tsconfig.check.json",
+    "build": "tsc -p tsconfig.build.json",
+    "build:tests": "tsc -p tsconfig.tests.json",
+    "test": "npm run build:tests && node --test \"dist/test/**/*.test.js\"",
+    "lint:format": "prettier --check .",
+    "lint:code": "eslint .",
+    "gate": "node scripts/gate.mjs",
+    "gate:changed": "node scripts/gate.mjs --changed",
+    "gate:full": "node scripts/gate.mjs --full"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.18"
   },
-  "license": "MIT",
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "eslint": "^9.35.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.20.0"
   }
 }
