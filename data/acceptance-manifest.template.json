@@ -1,0 +1,55 @@
+{
+  "manifestVersion": "1.0",
+  "status": "pending-budget-and-model-selection",
+  "contentHash": null,
+  "rules": {
+    "minimumResponsesPerModel": 3,
+    "minimumEnvironmentsPerModel": 3,
+    "calibrationUseForbidden": true,
+    "openSetSlotCount": 8,
+    "openSetModelCount": null,
+    "openSetStrata": "OpenAI older-generation near negatives <=6 plus routing 2"
+  },
+  "slots": [
+    {
+      "slotId": "near-negative-01",
+      "stratum": "represented-family-unrepresented-generation",
+      "modelId": null
+    },
+    {
+      "slotId": "near-negative-02",
+      "stratum": "represented-family-unrepresented-generation",
+      "modelId": null
+    },
+    {
+      "slotId": "near-negative-03",
+      "stratum": "represented-family-unrepresented-generation",
+      "modelId": null
+    },
+    {
+      "slotId": "near-negative-04",
+      "stratum": "represented-family-unrepresented-generation",
+      "modelId": null
+    },
+    {
+      "slotId": "near-negative-05",
+      "stratum": "represented-family-unrepresented-generation",
+      "modelId": null
+    },
+    {
+      "slotId": "near-negative-06",
+      "stratum": "represented-family-unrepresented-generation",
+      "modelId": null
+    },
+    {
+      "slotId": "routing-01",
+      "stratum": "routing-endpoint",
+      "modelId": null
+    },
+    {
+      "slotId": "routing-02",
+      "stratum": "routing-endpoint",
+      "modelId": null
+    }
+  ]
+}

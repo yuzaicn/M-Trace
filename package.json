@@ -4,17 +4,22 @@
   "description": "Trace and verify the model identity behind AI coding interactions.",
   "type": "module",
   "bin": {
-    "m-trace": "./bin/m-trace.js"
+    "m-trace": "./bin/m-trace.js",
+    "m-trace-collect": "./bin/m-trace-collect.js",
+    "m-trace-evaluate": "./bin/m-trace-evaluate.js"
   },
   "scripts": {
-    "build": "node --check bin/m-trace.js",
+    "build": "node scripts/check-sources.js",
     "lint": "eslint . && prettier --check .",
-    "test": "node --test"
+    "test": "node --test",
+    "test:collector": "node --test test/collector.test.js",
+    "test:evaluation": "node --test test/evaluation.test.js"
   },
   "engines": {
     "node": ">=18"
   },
   "license": "MIT",
+  "dependencies": {},
   "devDependencies": {
     "eslint": "^9.35.0",
     "prettier": "^3.6.2"

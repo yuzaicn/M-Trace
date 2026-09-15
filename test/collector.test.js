@@ -1,0 +1,862 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createServer } from 'node:http';
+import test from 'node:test';
+import { collect, parseTokens } from '../src/collect/client.js';
+import { retryCheckpointState } from '../src/collect/jsonl.js';
+
+const challenge = {
+  id: 'mock:1',
+  family: 'adaptive-numeric-v1',
+  wrapper: 'direct',
+  prompt: 'original mock prompt',
+  format: 'json-array',
+  params: {
+    sequenceLength: 4,
+    temperature: 1,
+    bucketCount: 8,
+    rangeExclusive: 120,
+  },
+};
+
+test('parses categorical outputs in every supported format', () => {
+  assert.deepEqual(parseTokens('["Α","Β"]', 'json-array'), ['Α', 'Β']);
+  assert.deepEqual(parseTokens('Α, Β', 'csv-line'), ['Α', 'Β']);
+  assert.deepEqual(parseTokens('Α Β', 'plain-text'), ['Α', 'Β']);
+});
+
+async function withServer(handler, run) {
+  const server = createServer(handler);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await run(`http://127.0.0.1:${server.address().port}`);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
+test('collects OpenAI SSE, retries 429 indefinitely, resumes, and never persists key or endpoint', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const normalizedPath = join(directory, 'normalized.jsonl');
+  const secret = 'sk-sensitive-test-value';
+  let calls = 0;
+  await withServer(
+    async (request, response) => {
+      calls += 1;
+      assert.equal(request.headers.authorization, `Bearer ${secret}`);
+      assert.equal(request.url, '/v1/chat/completions');
+      let requestBody = '';
+      for await (const chunk of request) requestBody += chunk;
+      const requestJson = JSON.parse(requestBody);
+      assert.deepEqual(requestJson.thinking, { type: 'disabled' });
+      assert.equal(requestJson.max_completion_tokens, 512);
+      assert.equal(requestJson.max_tokens, undefined);
+      assert.equal(requestJson.temperature, 1);
+      assert.deepEqual(requestJson.stream_options, { include_usage: true });
+      if (calls === 1) {
+        response.writeHead(429, { 'retry-after': '0' });
+        response.end();
+        return;
+      }
+      response.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'x-request-id': 'mock-request',
+      });
+      response.end(
+        `data: {"model":"self-a","choices":[{"delta":{"content":"[1,2"}}]}\n\ndata: {"choices":[{"delta":{"content":",3,4]"},"finish_reason":"stop"}],"debug":"${secret}"}\n\ndata: {"choices":[],"usage":{"prompt_tokens":8,"completion_tokens":4,"total_tokens":12}}\n\ndata: [DONE]\n\n`,
+      );
+    },
+    async (baseUrl) => {
+      const options = {
+        baseUrl: `${baseUrl}/v1`,
+        key: secret,
+        model: 'requested-a',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath,
+        retries: 0,
+        requestsPerMinute: 0,
+        sleep: async () => {},
+        generationOptions: { thinking: { type: 'disabled' } },
+        samplingMode: 'challenge-temperature',
+      };
+      assert.deepEqual(await collect(options), {
+        attempted: 1,
+        completed: 1,
+        skipped: 0,
+        failures: [],
+        retry429Count: 1,
+        cumulative429WaitMs: 60_000,
+      });
+      assert.deepEqual(await collect(options), {
+        attempted: 0,
+        completed: 0,
+        skipped: 1,
+        failures: [],
+        retry429Count: 1,
+        cumulative429WaitMs: 60_000,
+      });
+      const persisted = `${await readFile(rawPath, 'utf8')}\n${await readFile(normalizedPath, 'utf8')}`;
+      assert.doesNotMatch(persisted, new RegExp(secret));
+      assert.doesNotMatch(
+        persisted,
+        new RegExp(baseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      );
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
+      );
+      assert.deepEqual(normalized.values, [1, 2, 3, 4]);
+      assert.deepEqual(normalized.generationOptions, {
+        thinking: { type: 'disabled' },
+      });
+      assert.deepEqual(normalized.usage, {
+        prompt_tokens: 8,
+        completion_tokens: 4,
+        total_tokens: 12,
+      });
+      const rawRecords = (await readFile(rawPath, 'utf8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      const raw = rawRecords.find(
+        (record) => record.recordType === 'raw-probe-v1',
+      );
+      assert.deepEqual(raw.request.generationOptions, {
+        thinking: { type: 'disabled' },
+      });
+      const checkpoints = rawRecords.filter(
+        (record) => record.recordType === 'retry-checkpoint-v1',
+      );
+      assert.deepEqual(
+        checkpoints.map((record) => record.checkpoint.phase),
+        ['before-wait', 'after-wait'],
+      );
+      assert.equal(checkpoints[0].checkpoint.waitMs, 60_000);
+      assert.equal(checkpoints[0].checkpoint.consecutive429Count, 1);
+      assert.equal(checkpoints[0].checkpoint.cumulativeWaitMs, 0);
+      assert.equal(checkpoints[0].checkpoint.plannedCumulativeWaitMs, 60_000);
+      assert.equal(checkpoints[1].checkpoint.cumulativeWaitMs, 60_000);
+    },
+  );
+  assert.equal(calls, 2);
+});
+
+test('429 retries do not consume bounded retries and clamp retry-after to ten minutes', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  let calls = 0;
+  const waits = [];
+  await withServer(
+    async (_request, response) => {
+      calls += 1;
+      if (calls <= 3) {
+        response.writeHead(429, { 'retry-after': '3600' });
+        response.end();
+        return;
+      }
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'self-json',
+          choices: [
+            { message: { content: '[1,2,3,4]' }, finish_reason: 'stop' },
+          ],
+          usage: { completion_tokens: 4 },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'requested-a',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath: join(directory, 'normalized.jsonl'),
+        stream: false,
+        retries: 0,
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+        sleep: async (waitMs) => waits.push(waitMs),
+      });
+      assert.equal(result.completed, 1);
+      assert.equal(result.retry429Count, 3);
+      assert.equal(result.cumulative429WaitMs, 1_800_000);
+      assert.deepEqual(waits, [600_000, 600_000, 600_000]);
+      const checkpoints = (await readFile(rawPath, 'utf8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line))
+        .filter((record) => record.recordType === 'retry-checkpoint-v1');
+      assert.equal(checkpoints.length, 6);
+      assert.equal(checkpoints.at(-1).checkpoint.cumulativeWaitMs, 1_800_000);
+    },
+  );
+  assert.equal(calls, 4);
+});
+
+test('quota exhaustion 429 checkpoints and exits without sleeping or retrying', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const secret = 'mock-quota-secret';
+  const waits = [];
+  let calls = 0;
+  await withServer(
+    (_request, response) => {
+      calls += 1;
+      response.writeHead(429, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          error: {
+            type: 'insufficient_quota',
+            code: 'credit_balance_exhausted',
+            message: `no credits remain for ${secret}`,
+          },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: secret,
+        model: 'requested-a',
+        protocol: 'openai',
+        challenges: [challenge, { ...challenge, id: 'mock:2' }],
+        rawPath,
+        normalizedPath: join(directory, 'normalized.jsonl'),
+        stream: false,
+        retries: 5,
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+        sleep: async (waitMs) => waits.push(waitMs),
+      });
+      assert.equal(calls, 1);
+      assert.deepEqual(waits, []);
+      assert.equal(result.attempted, 1);
+      assert.equal(result.completed, 0);
+      assert.equal(result.retry429Count, 1);
+      assert.equal(result.cumulative429WaitMs, 0);
+      assert.deepEqual(result.failures, [
+        {
+          challengeId: challenge.id,
+          message: 'upstream quota exhausted (credit_balance_exhausted)',
+        },
+      ]);
+      const persisted = await readFile(rawPath, 'utf8');
+      assert.doesNotMatch(persisted, new RegExp(secret));
+      const [record] = persisted
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.equal(record.checkpoint.phase, 'quota-exhausted');
+      assert.equal(record.checkpoint.errorType, 'insufficient_quota');
+      assert.equal(record.checkpoint.errorCode, 'credit_balance_exhausted');
+      assert.equal(record.checkpoint.waitMs, undefined);
+    },
+  );
+});
+
+test('quota checkpoint cancels a pending cross-process 429 wait', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  await writeFile(
+    rawPath,
+    [
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 5,
+          consecutive429Count: 5,
+          phase: 'before-wait',
+          waitMs: 600_000,
+          cumulativeWaitMs: 900_000,
+        },
+      },
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 5,
+          phase: 'quota-exhausted',
+          errorType: 'insufficient_quota',
+          errorCode: 'credit_balance_exhausted',
+          cumulativeWaitMs: 900_000,
+        },
+      },
+    ]
+      .map(JSON.stringify)
+      .join('\n') + '\n',
+    { mode: 0o600 },
+  );
+  assert.deepEqual(await retryCheckpointState(rawPath), {
+    cumulativeWaitMs: 900_000,
+    retry429Count: 5,
+    consecutive429ByChallenge: {},
+    pendingWaitByChallenge: {},
+  });
+});
+
+test('429 backoff resumes at the persisted exponential tier', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  await writeFile(
+    rawPath,
+    [
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 1,
+          phase: 'before-wait',
+          cumulativeWaitMs: 0,
+        },
+      },
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 1,
+          phase: 'after-wait',
+          cumulativeWaitMs: 60_000,
+        },
+      },
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 2,
+          phase: 'before-wait',
+          waitMs: 120_000,
+          cumulativeWaitMs: 60_000,
+          plannedCumulativeWaitMs: 180_000,
+        },
+      },
+    ]
+      .map(JSON.stringify)
+      .join('\n') + '\n',
+    { mode: 0o600 },
+  );
+  const waits = [];
+  let calls = 0;
+  await withServer(
+    (_request, response) => {
+      calls += 1;
+      if (calls === 1) {
+        response.writeHead(429);
+        response.end();
+        return;
+      }
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'self-json',
+          choices: [
+            { message: { content: '[1,2,3,4]' }, finish_reason: 'stop' },
+          ],
+          usage: { completion_tokens: 4 },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'requested-a',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath: join(directory, 'normalized.jsonl'),
+        stream: false,
+        retries: 0,
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+        sleep: async (waitMs) => waits.push(waitMs),
+      });
+      assert.equal(result.completed, 1);
+      assert.equal(result.retry429Count, 3);
+      assert.equal(result.cumulative429WaitMs, 420_000);
+      assert.deepEqual(waits, [120_000, 240_000]);
+      const checkpoints = (await readFile(rawPath, 'utf8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line))
+        .filter((record) => record.recordType === 'retry-checkpoint-v1');
+      assert.equal(checkpoints[3].checkpoint.resumed, true);
+      assert.equal(checkpoints[3].checkpoint.cumulativeWaitMs, 180_000);
+    },
+  );
+});
+
+test('collects Anthropic non-stream response', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  await withServer(
+    (request, response) => {
+      assert.equal(request.headers['x-api-key'], 'mock-key');
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'self-b',
+          content: [{ type: 'text', text: '1 2 3 4' }],
+          usage: { output_tokens: 4 },
+          stop_reason: 'end_turn',
+          debug: 'mock-key',
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'requested-b',
+        protocol: 'anthropic',
+        challenges: [challenge],
+        rawPath: join(directory, 'raw.jsonl'),
+        normalizedPath: join(directory, 'normalized.jsonl'),
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+      });
+      assert.equal(result.completed, 1);
+      assert.doesNotMatch(
+        await readFile(join(directory, 'raw.jsonl'), 'utf8'),
+        /mock-key/,
+      );
+      const normalized = JSON.parse(
+        (await readFile(join(directory, 'normalized.jsonl'), 'utf8')).trim(),
+      );
+      assert.equal(normalized.streamed, false);
+      assert.equal(normalized.selfReportedModel, 'self-b');
+    },
+  );
+});
+
+test('collects Anthropic SSE response', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  await withServer(
+    (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/event-stream' });
+      response.end(
+        'event: message_start\ndata: {"type":"message_start","message":{"model":"self-stream","usage":{"input_tokens":8}}}\n\n' +
+          'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"[1,2,3,4]"}}\n\n' +
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":4}}\n\n',
+      );
+    },
+    async (baseUrl) => {
+      const normalizedPath = join(directory, 'normalized.jsonl');
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'requested-b',
+        protocol: 'anthropic',
+        challenges: [challenge],
+        rawPath: join(directory, 'raw.jsonl'),
+        normalizedPath,
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+      });
+      assert.equal(result.completed, 1);
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
+      );
+      assert.equal(normalized.streamed, true);
+      assert.equal(normalized.selfReportedModel, 'self-stream');
+      assert.deepEqual(normalized.values, [1, 2, 3, 4]);
+    },
+  );
+});
+
+test('collects OpenAI non-stream response', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  await withServer(
+    (_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'self-json',
+          choices: [
+            { message: { content: '[1,2,3,4]' }, finish_reason: 'stop' },
+          ],
+          usage: { completion_tokens: 4 },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const normalizedPath = join(directory, 'normalized.jsonl');
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'requested-a',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath: join(directory, 'raw.jsonl'),
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+      });
+      assert.equal(result.completed, 1);
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
+      );
+      assert.equal(normalized.streamed, false);
+      assert.equal(normalized.selfReportedModel, 'self-json');
+    },
+  );
+});
+
+test('Anthropic provider-default mode fails closed before making a request', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let requested = false;
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'requested-b',
+    protocol: 'anthropic',
+    challenges: [challenge],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 0,
+    samplingMode: 'provider-default',
+    fetchImpl: async () => {
+      requested = true;
+      throw new Error('must not be reached');
+    },
+  });
+  assert.equal(requested, false);
+  assert.match(result.failures[0].message, /deferred to the 0\.0\.2/);
+});
+
+test('official OpenAI guard rejects compatibility proxies before a request', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let requested = false;
+  await assert.rejects(
+    collect({
+      baseUrl: 'https://sub2api.example/v1',
+      key: 'mock-key',
+      model: 'gpt-5.6-sol',
+      protocol: 'openai',
+      challenges: [challenge],
+      rawPath: join(directory, 'raw.jsonl'),
+      normalizedPath: join(directory, 'normalized.jsonl'),
+      requestsPerMinute: 0,
+      requireOfficialOpenAI: true,
+      fetchImpl: async () => {
+        requested = true;
+        throw new Error('must not be reached');
+      },
+    }),
+    /requires https:\/\/api\.openai\.com/,
+  );
+  assert.equal(requested, false);
+});
+
+test('provider-default mode rejects explicit sampling overrides', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'gpt-5.6-sol',
+    protocol: 'openai',
+    challenges: [challenge],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 0,
+    samplingMode: 'provider-default',
+    generationOptions: { reasoning_effort: 'none', temperature: 1 },
+    fetchImpl: async () => {
+      throw new Error('must not be reached');
+    },
+  });
+  assert.match(result.failures[0].message, /forbids temperature/);
+});
+
+test('OpenAI provider-default without reasoning effort records the plain chat shape', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  await withServer(
+    (_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'plain-chat',
+          choices: [{ message: { content: '[1,2,3,4]' } }],
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const normalizedPath = join(directory, 'normalized.jsonl');
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'plain-chat',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath: join(directory, 'raw.jsonl'),
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+      });
+      assert.equal(result.completed, 1);
+      const normalized = JSON.parse(await readFile(normalizedPath, 'utf8'));
+      assert.equal(normalized.requestShape, 'openai-chat-completions');
+      assert.equal(normalized.effort, null);
+    },
+  );
+});
+
+test('Suite 2 challenges cannot be forced through challenge-temperature mode', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let requested = false;
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'gpt-5.6-sol',
+    protocol: 'openai',
+    challenges: [
+      {
+        ...challenge,
+        suiteVersion: '2.0.0',
+        samplingSource: 'provider-default',
+        params: { ...challenge.params, temperature: undefined },
+      },
+    ],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 0,
+    samplingMode: 'challenge-temperature',
+    fetchImpl: async () => {
+      requested = true;
+      throw new Error('must not be reached');
+    },
+  });
+  assert.equal(requested, false);
+  assert.match(result.failures[0].message, /requires a finite/);
+});
+
+test('OpenAI provider-default variant omits temperature and records reasoning provenance and usage', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const normalizedPath = join(directory, 'normalized.jsonl');
+  await withServer(
+    async (request, response) => {
+      let requestBody = '';
+      for await (const chunk of request) requestBody += chunk;
+      const requestJson = JSON.parse(requestBody);
+      assert.equal(requestJson.model, 'gpt-5.6-sol');
+      assert.equal(requestJson.max_completion_tokens, 512);
+      assert.equal(requestJson.max_tokens, undefined);
+      assert.equal(requestJson.temperature, undefined);
+      assert.equal(requestJson.reasoning_effort, 'none');
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'gpt-5.6-sol',
+          system_fingerprint: 'fp_mock',
+          choices: [
+            { message: { content: '[1,2,3,4]' }, finish_reason: 'stop' },
+          ],
+          usage: {
+            prompt_tokens: 9,
+            completion_tokens: 7,
+            total_tokens: 16,
+            completion_tokens_details: { reasoning_tokens: 3 },
+          },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'official-mock-key',
+        model: 'gpt-5.6-sol',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+        generationOptions: { reasoning_effort: 'none' },
+      });
+      assert.equal(result.completed, 1);
+      const raw = JSON.parse((await readFile(rawPath, 'utf8')).trim());
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
+      );
+      for (const record of [raw.request, raw.response, normalized]) {
+        assert.equal(record.samplingSource, 'provider-default');
+        assert.equal(record.effort, 'none');
+        assert.equal(record.requestShape, 'openai-reasoning-chat-completions');
+      }
+      assert.equal(raw.samplingSource, 'provider-default');
+      assert.equal(raw.effort, 'none');
+      assert.equal(raw.requestShape, 'openai-reasoning-chat-completions');
+      assert.deepEqual(raw.generationOptions, { reasoning_effort: 'none' });
+      assert.deepEqual(raw.usage, {
+        prompt_tokens: 9,
+        completion_tokens: 7,
+        total_tokens: 16,
+        completion_tokens_details: { reasoning_tokens: 3 },
+      });
+      assert.equal(raw.systemFingerprint, 'fp_mock');
+      assert.deepEqual(normalized.usage, {
+        prompt_tokens: 9,
+        completion_tokens: 7,
+        total_tokens: 16,
+        completion_tokens_details: { reasoning_tokens: 3 },
+      });
+      assert.equal(normalized.systemFingerprint, 'fp_mock');
+    },
+  );
+});
+
+test('OpenAI Responses variant uses native fields and records transport provenance', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const normalizedPath = join(directory, 'normalized.jsonl');
+  await withServer(
+    async (request, response) => {
+      assert.equal(request.url, '/v1/responses');
+      let requestBody = '';
+      for await (const chunk of request) requestBody += chunk;
+      const requestJson = JSON.parse(requestBody);
+      assert.equal(requestJson.model, 'gpt-5.5-pro');
+      assert.equal(requestJson.input, challenge.prompt);
+      assert.equal(requestJson.max_output_tokens, 8192);
+      assert.equal(requestJson.max_completion_tokens, undefined);
+      assert.equal(requestJson.temperature, undefined);
+      assert.deepEqual(requestJson.reasoning, { effort: 'medium' });
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          id: 'resp_mock',
+          status: 'completed',
+          model: 'gpt-5.5-pro-2026-04-23',
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: '[1,2,3,4]' }],
+            },
+          ],
+          usage: {
+            input_tokens: 9,
+            output_tokens: 7,
+            total_tokens: 16,
+            output_tokens_details: { reasoning_tokens: 3 },
+          },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'official-mock-key',
+        model: 'gpt-5.5-pro',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+        generationOptions: { reasoning: { effort: 'medium' } },
+        requestShape: 'openai-responses',
+        transport: 'tunnel',
+      });
+      assert.equal(result.completed, 1);
+      const raw = JSON.parse((await readFile(rawPath, 'utf8')).trim());
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
+      );
+      for (const record of [raw.request, raw.response, normalized]) {
+        assert.equal(record.requestShape, 'openai-responses');
+        assert.equal(record.effort, 'medium');
+        assert.equal(record.transport, 'tunnel');
+        assert.equal(record.extractorVersion, '1.0.0');
+        assert.equal(record.suiteVersion, challenge.suiteVersion ?? null);
+      }
+      assert.deepEqual(normalized.values, [1, 2, 3, 4]);
+      assert.equal(normalized.requestedModel, 'gpt-5.5-pro');
+      assert.equal(normalized.selfReportedModel, 'gpt-5.5-pro-2026-04-23');
+      assert.equal(normalized.usage.output_tokens, 7);
+      assert.equal(normalized.usage.output_tokens_details.reasoning_tokens, 3);
+    },
+  );
+});
+
+test('explicit HTTP 4xx is never retried', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let calls = 0;
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'gpt-5.6-sol',
+    protocol: 'openai',
+    challenges: [challenge],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 3,
+    fetchImpl: async () => {
+      calls += 1;
+      return {
+        ok: false,
+        status: 404,
+        headers: { get: () => null },
+      };
+    },
+  });
+  assert.equal(calls, 1);
+  assert.match(result.failures[0].message, /HTTP 404/);
+});
+
+test('length mismatch is a failed record and remains resumable', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const normalizedPath = join(directory, 'normalized.jsonl');
+  let calls = 0;
+  await withServer(
+    (_request, response) => {
+      calls += 1;
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'short-output',
+          choices: [
+            { message: { content: '[1,2,3]' }, finish_reason: 'length' },
+          ],
+          usage: { completion_tokens: 3 },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const options = {
+        baseUrl,
+        key: 'mock-key',
+        model: 'short-output',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+        retries: 2,
+        samplingMode: 'challenge-temperature',
+      };
+      const first = await collect(options);
+      assert.equal(first.completed, 0);
+      assert.equal(first.failures[0].message, 'truncated-response');
+      const record = JSON.parse(await readFile(normalizedPath, 'utf8'));
+      assert.equal(record.parseFailure, 'truncated-response');
+      const second = await collect(options);
+      assert.equal(second.attempted, 1);
+      assert.equal(second.skipped, 0);
+    },
+  );
+  assert.equal(calls, 2);
+});

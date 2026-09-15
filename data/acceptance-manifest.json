@@ -1,0 +1,411 @@
+{
+  "manifestVersion": "1.1",
+  "status": "full-collection-paused-credit-exhausted",
+  "collectionRound1": {
+    "status": "paused-credit-exhausted",
+    "requestedChallengesPerModel": 36,
+    "transport": "tunnel",
+    "attemptedByModel": {
+      "gpt-5.5-pro": 36,
+      "gpt-5.5": 36,
+      "gpt-5.6-sol": 0,
+      "gpt-5.6-terra": 0,
+      "gpt-5.6-luna": 0,
+      "gpt-6-astra": 0
+    },
+    "completedByModel": {
+      "gpt-5.5-pro": 23,
+      "gpt-5.5": 0,
+      "gpt-5.6-sol": 0,
+      "gpt-5.6-terra": 0,
+      "gpt-5.6-luna": 0,
+      "gpt-6-astra": 0
+    },
+    "failureCounts": {
+      "gpt-5.5-pro": {
+        "timeout": 1,
+        "http429": 12
+      },
+      "gpt-5.5": {
+        "http429": 36
+      }
+    },
+    "usageObserved": {
+      "inputTokens": 928,
+      "outputTokens": 82975,
+      "reasoningTokens": 63677,
+      "totalTokens": 83903,
+      "estimatedCny": 106.99
+    },
+    "stopReason": "account credit balance exhausted after 23 completed Pro challenges; no partial records promoted to the bank",
+    "recoveryProbes": {
+      "model": "gpt-5.6-luna",
+      "attempts": 3,
+      "statuses": [429, 429, 429],
+      "firstPairIntervalSeconds": 8,
+      "gate": "consecutive-two-200",
+      "passed": false,
+      "lastProbeAt": "2026-09-15T13:03:30.795Z",
+      "lastErrorType": "insufficient_quota",
+      "lastErrorCode": "credit_balance_exhausted",
+      "lastProbeUsage": null
+    },
+    "automatic429Retry": {
+      "model": "gpt-5.6-luna",
+      "status": "parked-credit-balance-exhausted",
+      "completedChallenges": 0,
+      "missingChallenges": 36,
+      "http429Responses": 5,
+      "cumulativeWaitSeconds": 900,
+      "pendingWaitSeconds": 0,
+      "diagnosis": {
+        "source": "collector-recovery-probe",
+        "corroborates": "authorized-minimal-diagnostic",
+        "errorType": "insufficient_quota",
+        "errorCode": "credit_balance_exhausted"
+      },
+      "nextAction": "owner credit top-up, two consecutive minimal 200 probes, then cheap models before Pro gaps",
+      "estimatedCny": 0
+    }
+  },
+  "selectionFrozenAt": "2026-09-15",
+  "contentHash": "sha256:cbadf01cb0eac3a3f3b5841cef805d6f4467e13c418ef32dfb13658cade7de38",
+  "rules": {
+    "minimumLibraryModels": 6,
+    "minimumResponsesPerModel": 3,
+    "minimumEnvironmentsPerModel": 3,
+    "calibrationUseForbidden": true,
+    "noAliasOrSnapshotOverlapWithBank": true,
+    "noQuantizedInBankVariant": true,
+    "routingGate": "unknown-by-construction",
+    "pilotAllModelsMustPass": true,
+    "pilotFailureAction": "stop-and-report; no substitution without owner decision",
+    "openSetSlotCount": 8,
+    "openSetModelCount": 2,
+    "openSetStrata": "OpenAI older-generation near negatives <=6 plus routing 2"
+  },
+  "probePolicy": {
+    "listSource": "GET https://api.openai.com/v1/models with platform.openai.com official key",
+    "allowedBaseUrl": "https://api.openai.com",
+    "forbiddenSources": [
+      "shared-gateway",
+      "mirror",
+      "reseller",
+      "sub2api",
+      "codex-proxy"
+    ],
+    "probeCommand": "m-trace-collect --protocol openai --base-url https://api.openai.com --official-openai-only --model ... --key-env ... --pilot-integers 16 --sampling-mode provider-default --transport tunnel --no-stream",
+    "chatGenerationOptions": "--generation-options-json '{\"reasoning_effort\":\"...\"}'",
+    "gpt55ProCommandSuffix": "--request-shape openai-responses --generation-options-json '{\"reasoning\":{\"effort\":\"medium\"}}'",
+    "probeCostMode": "owner-approved-pilot-only",
+    "probeMustUseFirstParty": true,
+    "preflightModelsMustPass": 6,
+    "preflightOutput": "exactly-16-integers",
+    "samplingMode": "provider-default",
+    "temperatureSent": false,
+    "maxTokenFields": {
+      "openai-reasoning-chat-completions": "max_completion_tokens",
+      "openai-responses": "max_output_tokens"
+    },
+    "provenanceFields": [
+      "samplingSource",
+      "effort",
+      "requestShape",
+      "generationOptions",
+      "usage",
+      "systemFingerprint",
+      "transport"
+    ],
+    "driftReviewAfterDays": 14,
+    "driftAction": "issue-new-bankVersion; never overwrite prior bank",
+    "routingSource": "all-api.ccode.dev",
+    "routingIdentity": "unknown-by-construction; direct transport only; never enters bank"
+  },
+  "libraryModels": [
+    {
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.5",
+      "family": "gpt-5.5",
+      "generation": "5.5",
+      "releaseDate": "2026-04-23",
+      "idStatus": "rolling-model-id",
+      "inputUsdPerMTok": 5,
+      "outputUsdPerMTok": 30,
+      "reasoningEffort": "none",
+      "samplingMode": "provider-default",
+      "samplingSource": "provider-default",
+      "requestShape": "openai-reasoning-chat-completions",
+      "providerHint": "openai-platform-official",
+      "transport": "tunnel",
+      "stream": false,
+      "source": "official-api",
+      "baseUrl": "https://api.openai.com",
+      "probeAt": "2026-09-15T08:09:24.928Z",
+      "probeResult": "pilot-pass-chat",
+      "identitySemantics": "dateless provider-current-pointer; response model and system fingerprint identify the resolved service"
+    },
+    {
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.5-pro",
+      "family": "gpt-5.5",
+      "generation": "5.5 Pro",
+      "releaseDate": "2026-04-23",
+      "idStatus": "rolling-model-id",
+      "inputUsdPerMTok": 30,
+      "outputUsdPerMTok": 180,
+      "reasoningEffort": "medium",
+      "samplingMode": "provider-default",
+      "samplingSource": "provider-default",
+      "requestShape": "openai-responses",
+      "providerHint": "openai-platform-official",
+      "transport": "tunnel",
+      "stream": false,
+      "source": "official-api",
+      "baseUrl": "https://api.openai.com",
+      "probeAt": "2026-09-15T08:08:02.137Z",
+      "probeResult": "pilot-pass-responses",
+      "riskNote": "dateless Chat Completions pilot returned HTTP 404; the authorized dateless Responses diagnostic succeeded over the approved CONNECT tunnel. The pointer resolved to gpt-5.5-pro-2026-04-23 and returned 89 reasoning tokens",
+      "identitySemantics": "dateless provider-current-pointer; response model and system fingerprint identify the resolved service"
+    },
+    {
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.6-sol",
+      "family": "gpt-5.6",
+      "generation": "5.6 Sol",
+      "releaseDate": "2026-07-09",
+      "idStatus": "rolling-model-id",
+      "inputUsdPerMTok": 4,
+      "outputUsdPerMTok": 20,
+      "reasoningEffort": "none",
+      "samplingMode": "provider-default",
+      "samplingSource": "provider-default",
+      "requestShape": "openai-reasoning-chat-completions",
+      "providerHint": "openai-platform-official",
+      "transport": "tunnel",
+      "stream": false,
+      "source": "official-api",
+      "baseUrl": "https://api.openai.com",
+      "probeAt": "2026-09-15T08:09:29.279Z",
+      "probeResult": "pilot-pass-chat",
+      "aliasRule": "gpt-5.6 was absent from the verified model list; it is excluded from the pilot and must never become a second bank entry"
+    },
+    {
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.6-terra",
+      "family": "gpt-5.6",
+      "generation": "5.6 Terra",
+      "releaseDate": "2026-07-09",
+      "idStatus": "rolling-model-id",
+      "inputUsdPerMTok": 2,
+      "outputUsdPerMTok": 12,
+      "reasoningEffort": "none",
+      "samplingMode": "provider-default",
+      "samplingSource": "provider-default",
+      "requestShape": "openai-reasoning-chat-completions",
+      "providerHint": "openai-platform-official",
+      "transport": "tunnel",
+      "stream": false,
+      "source": "official-api",
+      "baseUrl": "https://api.openai.com",
+      "probeAt": "2026-09-15T08:09:33.201Z",
+      "probeResult": "pilot-pass-chat"
+    },
+    {
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.6-luna",
+      "family": "gpt-5.6",
+      "generation": "5.6 Luna",
+      "releaseDate": "2026-07-09",
+      "idStatus": "rolling-model-id",
+      "inputUsdPerMTok": 0.2,
+      "outputUsdPerMTok": 1.2,
+      "reasoningEffort": "none",
+      "samplingMode": "provider-default",
+      "samplingSource": "provider-default",
+      "requestShape": "openai-reasoning-chat-completions",
+      "providerHint": "openai-platform-official",
+      "transport": "tunnel",
+      "stream": false,
+      "source": "official-api",
+      "baseUrl": "https://api.openai.com",
+      "probeAt": "2026-09-15T08:09:36.631Z",
+      "probeResult": "pilot-pass-chat"
+    },
+    {
+      "vendor": "OpenAI",
+      "modelId": "gpt-6-astra",
+      "family": "gpt-6",
+      "generation": "6 Astra",
+      "releaseDate": "2026-09-04",
+      "idStatus": "rolling-model-id",
+      "inputUsdPerMTok": 10,
+      "outputUsdPerMTok": 50,
+      "reasoningEffort": "low",
+      "samplingMode": "provider-default",
+      "samplingSource": "provider-default",
+      "requestShape": "openai-reasoning-chat-completions",
+      "providerHint": "openai-platform-official",
+      "transport": "tunnel",
+      "stream": false,
+      "source": "official-api",
+      "baseUrl": "https://api.openai.com",
+      "probeAt": "2026-09-15T08:09:42.124Z",
+      "probeResult": "pilot-pass-chat",
+      "riskNote": "minimum reasoning effort is low; the 16-integer pilot was parseable and reported zero reasoning tokens, but one pilot response does not establish full-suite cost or stability"
+    }
+  ],
+  "slots": [
+    {
+      "slotId": "near-negative-01",
+      "stratum": "represented-family-unrepresented-generation",
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.4",
+      "family": "OpenAI",
+      "generation": "5.4 rolling model ID",
+      "source": "official-api"
+    },
+    {
+      "slotId": "near-negative-02",
+      "stratum": "represented-family-unrepresented-generation",
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.4-mini",
+      "family": "OpenAI",
+      "generation": "5.4 Mini rolling model ID",
+      "source": "official-api"
+    },
+    {
+      "slotId": "near-negative-03",
+      "stratum": "represented-family-unrepresented-generation",
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.4-nano",
+      "family": "OpenAI",
+      "generation": "5.4 nano rolling model ID",
+      "source": "official-api"
+    },
+    {
+      "slotId": "near-negative-04",
+      "stratum": "represented-family-unrepresented-generation",
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.2",
+      "family": "OpenAI",
+      "generation": "5.2 rolling model ID",
+      "source": "official-api"
+    },
+    {
+      "slotId": "near-negative-05",
+      "stratum": "represented-family-unrepresented-generation",
+      "vendor": "OpenAI",
+      "modelId": "gpt-5.1",
+      "family": "OpenAI",
+      "generation": "5.1 rolling model ID",
+      "source": "official-api"
+    },
+    {
+      "slotId": "near-negative-06",
+      "stratum": "represented-family-unrepresented-generation",
+      "vendor": "OpenAI",
+      "modelId": "gpt-4.1",
+      "family": "OpenAI",
+      "generation": "4.1 rolling model ID",
+      "source": "official-api"
+    },
+    {
+      "slotId": "routing-01",
+      "stratum": "routing-endpoint",
+      "vendor": "OpenAI-compatible route",
+      "modelId": "routing-slot-01",
+      "family": "OpenAI route",
+      "generation": "unknown",
+      "source": "routing-endpoint",
+      "endpointHost": "all-api.ccode.dev",
+      "identitySemantics": "unknown-by-construction; never a bank identity"
+    },
+    {
+      "slotId": "routing-02",
+      "stratum": "routing-endpoint",
+      "vendor": "OpenAI-compatible route",
+      "modelId": "routing-slot-02",
+      "family": "OpenAI route",
+      "generation": "unknown",
+      "source": "routing-endpoint",
+      "endpointHost": "all-api.ccode.dev",
+      "identitySemantics": "unknown-by-construction; never a bank identity"
+    }
+  ],
+  "availability": [
+    {
+      "slotId": "near-negative-01",
+      "modelId": "gpt-5.4",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
+    },
+    {
+      "slotId": "near-negative-02",
+      "modelId": "gpt-5.4-mini",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
+    },
+    {
+      "slotId": "near-negative-03",
+      "modelId": "gpt-5.4-nano",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
+    },
+    {
+      "slotId": "near-negative-04",
+      "modelId": "gpt-5.2",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
+    },
+    {
+      "slotId": "near-negative-05",
+      "modelId": "gpt-5.1",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
+    },
+    {
+      "slotId": "near-negative-06",
+      "modelId": "gpt-4.1",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
+    },
+    {
+      "slotId": "routing-01",
+      "modelId": "routing-slot-01",
+      "idStatus": "identity-unknown-by-construction",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-route-probe",
+      "transport": "direct",
+      "endpointHost": "all-api.ccode.dev"
+    },
+    {
+      "slotId": "routing-02",
+      "modelId": "routing-slot-02",
+      "idStatus": "identity-unknown-by-construction",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-route-probe",
+      "transport": "direct",
+      "endpointHost": "all-api.ccode.dev"
+    }
+  ]
+}
