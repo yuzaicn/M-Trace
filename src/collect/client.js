@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { TextDecoder } from 'node:util';
-import { appendJsonLine, completedIds } from './jsonl.js';
+import { appendJsonLine, completedIds, retryCheckpointState } from './jsonl.js';
 import {
   categoricalFingerprint,
   numericFingerprint,
@@ -15,6 +15,9 @@ const ALLOWED_RESPONSE_HEADERS = [
   'x-request-id',
   'retry-after',
 ];
+
+const RATE_LIMIT_MIN_WAIT_MS = 60_000;
+const RATE_LIMIT_MAX_WAIT_MS = 10 * 60_000;
 
 function endpointFor(baseUrl, protocol, requestShape) {
   const clean = baseUrl.replace(/\/$/, '');
@@ -129,6 +132,30 @@ function requestShapeFor(protocol, generationOptions, requestedRequestShape) {
   return Object.hasOwn(generationOptions, 'reasoning_effort')
     ? 'openai-reasoning-chat-completions'
     : 'openai-chat-completions';
+}
+
+function rateLimitWaitMs(retryAfterHeader, retry429Count, now) {
+  let requestedMs = Number.NaN;
+  if (retryAfterHeader !== null && retryAfterHeader !== undefined) {
+    const seconds = Number(retryAfterHeader);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      requestedMs = seconds * 1000;
+    } else {
+      const timestamp = Date.parse(retryAfterHeader);
+      if (Number.isFinite(timestamp)) requestedMs = timestamp - now();
+    }
+  }
+  const fallbackMs = Math.min(
+    RATE_LIMIT_MAX_WAIT_MS,
+    RATE_LIMIT_MIN_WAIT_MS * 2 ** retry429Count,
+  );
+  return Math.min(
+    RATE_LIMIT_MAX_WAIT_MS,
+    Math.max(
+      RATE_LIMIT_MIN_WAIT_MS,
+      Number.isFinite(requestedMs) ? requestedMs : fallbackMs,
+    ),
+  );
 }
 
 function headersFor(protocol, key) {
@@ -395,8 +422,16 @@ export async function collect({
   // A raw line may have been flushed immediately before a crash. Only the
   // normalized file marks a challenge as transactionally complete.
   const done = await completedIds(normalizedPath);
+  const checkpointState = await retryCheckpointState(rawPath);
   const interval = requestsPerMinute > 0 ? 60_000 / requestsPerMinute : 0;
-  const summary = { attempted: 0, completed: 0, skipped: 0, failures: [] };
+  const summary = {
+    attempted: 0,
+    completed: 0,
+    skipped: 0,
+    failures: [],
+    retry429Count: checkpointState.retry429Count,
+    cumulative429WaitMs: checkpointState.cumulativeWaitMs,
+  };
   for (const challenge of challenges) {
     if (done.has(challenge.id)) {
       summary.skipped += 1;
@@ -404,7 +439,10 @@ export async function collect({
     }
     summary.attempted += 1;
     let succeeded = false;
-    for (let attempt = 0; attempt <= retries && !succeeded; attempt += 1) {
+    let rateLimitRetry = 0;
+    let boundedRetry = 0;
+    let attempt = 0;
+    while (!succeeded) {
       const startedAt = now();
       try {
         const response = await fetchImpl(
@@ -427,16 +465,53 @@ export async function collect({
           },
         );
         if (!response.ok) {
-          const retriable = response.status === 429 || response.status >= 500;
-          if (retriable && attempt < retries) {
-            const retryHeader = response.headers.get('retry-after');
-            const retryAfter =
-              retryHeader === null ? Number.NaN : Number(retryHeader);
-            await sleep(
-              Number.isFinite(retryAfter)
-                ? retryAfter * 1000
-                : 250 * 2 ** attempt,
+          if (response.status === 429) {
+            const waitMs = rateLimitWaitMs(
+              response.headers.get('retry-after'),
+              rateLimitRetry,
+              now,
             );
+            summary.retry429Count += 1;
+            const cumulativeWaitMsBefore = summary.cumulative429WaitMs;
+            const cumulativeWaitMsAfter = cumulativeWaitMsBefore + waitMs;
+            const checkpoint = {
+              challengeId: challenge.id,
+              challengeHash: challengeHash(challenge),
+              model: model,
+              requestShape,
+              transport,
+              httpStatus: 429,
+              waitMs,
+              retry429Count: summary.retry429Count,
+            };
+            await appendJsonLine(rawPath, {
+              recordType: 'retry-checkpoint-v1',
+              checkpoint: {
+                ...checkpoint,
+                phase: 'before-wait',
+                cumulativeWaitMs: cumulativeWaitMsBefore,
+                plannedCumulativeWaitMs: cumulativeWaitMsAfter,
+              },
+            });
+            await sleep(waitMs);
+            summary.cumulative429WaitMs = cumulativeWaitMsAfter;
+            await appendJsonLine(rawPath, {
+              recordType: 'retry-checkpoint-v1',
+              checkpoint: {
+                ...checkpoint,
+                phase: 'after-wait',
+                cumulativeWaitMs: cumulativeWaitMsAfter,
+              },
+            });
+            rateLimitRetry += 1;
+            attempt += 1;
+            continue;
+          }
+          const retriable = response.status >= 500;
+          if (retriable && boundedRetry < retries) {
+            boundedRetry += 1;
+            await sleep(250 * 2 ** (boundedRetry - 1));
+            attempt += 1;
             continue;
           }
           const error = new Error(`upstream returned HTTP ${response.status}`);
@@ -563,13 +638,16 @@ export async function collect({
         summary.completed += 1;
         succeeded = true;
       } catch (error) {
-        if (attempt === retries || error.retryable === false) {
+        if (error.retryable === false || boundedRetry >= retries) {
           summary.failures.push({
             challengeId: challenge.id,
             message: redactSensitive(error.message, [key, baseUrl]),
           });
           break;
-        } else await sleep(250 * 2 ** attempt);
+        }
+        boundedRetry += 1;
+        await sleep(250 * 2 ** (boundedRetry - 1));
+        attempt += 1;
       }
     }
     if (interval > 0) await sleep(interval);

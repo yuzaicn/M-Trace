@@ -1,6 +1,6 @@
 # Collection tool
 
-`m-trace-collect` supports OpenAI-compatible `/v1/chat/completions` and Anthropic `/v1/messages`, including SSE and JSON responses. It retries HTTP 429/5xx, enforces a per-request timeout, applies a request-per-minute interval, and resumes by skipping challenge IDs already present in the normalized JSONL file.
+`m-trace-collect` supports OpenAI-compatible `/v1/chat/completions` and Anthropic `/v1/messages`, including SSE and JSON responses. HTTP 429 is an unlimited-wait class: the collector honors `retry-after` when present, otherwise uses exponential waits clamped to 60 seconds through 10 minutes, and writes before/after retry checkpoints with cumulative wait. HTTP 5xx and timeout failures retain bounded retry/backoff, while other 4xx responses stop immediately. The collector enforces a per-request timeout, applies a request-per-minute interval, and resumes by skipping challenge IDs already present in the normalized JSONL file.
 
 Provider-specific generation controls are passed with `--generation-options-json`. They are copied into the request and recorded in both JSONL records so a thinking budget or disabled-thinking setting is part of the reproducibility record. For example, the preflight policy for reasoning models is:
 
@@ -31,7 +31,7 @@ Keys can only be named through `--key-env`; their values cannot be passed as arg
 
 Normalized records carry both `extractorVersion: 1.0.0` and the challenge's `suiteVersion`; the collection-to-evaluation pipeline must preserve them because the evaluator excludes missing or incompatible evidence.
 
-Explicit HTTP 4xx responses are never retried. Network/timeout failures and HTTP 429/5xx may use the configured bounded retry/backoff policy. A transport tunnel is acceptable only when TLS still terminates at `api.openai.com`; invoke Node with `--use-env-proxy`, set `HTTPS_PROXY` to the reviewed CONNECT endpoint, and declare `--transport tunnel`. The CLI rejects tunnel provenance when either proxy precondition is absent. `--transport` records the actual route; it does not itself create a tunnel.
+Explicit HTTP 4xx responses other than 429 are never retried. HTTP 429 is retried without consuming the bounded retry budget or spend budget; each wait writes a `retry-checkpoint-v1` before and after sleeping, so a long run can exit and resume cleanly from the raw checkpoint. Network/timeout failures and HTTP 5xx retain the configured bounded retry/backoff policy. A transport tunnel is acceptable only when TLS still terminates at `api.openai.com`; invoke Node with `--use-env-proxy`, set `HTTPS_PROXY` to the reviewed CONNECT endpoint, and declare `--transport tunnel`. The CLI rejects tunnel provenance when either proxy precondition is absent. `--transport` records the actual route; it does not itself create a tunnel.
 
 Example against a local mock endpoint:
 
