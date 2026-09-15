@@ -52,6 +52,7 @@
         "requestShape",
         "effort",
         "generationOptions",
+        "transport",
         "usage",
         "systemFingerprint",
         "collectedAt",
@@ -78,6 +79,7 @@
           "enum": [
             "openai-chat-completions",
             "openai-reasoning-chat-completions",
+            "openai-responses",
             "anthropic-messages"
           ]
         },
@@ -86,6 +88,7 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/jsonValue" }
         },
+        "transport": { "enum": ["direct", "tunnel"] },
         "usage": {
           "anyOf": [
             { "type": "null" },

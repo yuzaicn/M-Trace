@@ -444,3 +444,98 @@ test('OpenAI provider-default variant omits temperature and records reasoning pr
     },
   );
 });
+
+test('OpenAI Responses variant uses native fields and records transport provenance', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const normalizedPath = join(directory, 'normalized.jsonl');
+  await withServer(
+    async (request, response) => {
+      assert.equal(request.url, '/v1/responses');
+      let requestBody = '';
+      for await (const chunk of request) requestBody += chunk;
+      const requestJson = JSON.parse(requestBody);
+      assert.equal(requestJson.model, 'gpt-5.5-pro-2026-04-23');
+      assert.equal(requestJson.input, challenge.prompt);
+      assert.equal(requestJson.max_output_tokens, 4096);
+      assert.equal(requestJson.max_completion_tokens, undefined);
+      assert.equal(requestJson.temperature, undefined);
+      assert.deepEqual(requestJson.reasoning, { effort: 'medium' });
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          id: 'resp_mock',
+          status: 'completed',
+          model: 'gpt-5.5-pro-2026-04-23',
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: '[1,2,3,4]' }],
+            },
+          ],
+          usage: {
+            input_tokens: 9,
+            output_tokens: 7,
+            total_tokens: 16,
+            output_tokens_details: { reasoning_tokens: 3 },
+          },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'official-mock-key',
+        model: 'gpt-5.5-pro-2026-04-23',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+        generationOptions: { reasoning: { effort: 'medium' } },
+        requestShape: 'openai-responses',
+        transport: 'tunnel',
+      });
+      assert.equal(result.completed, 1);
+      const raw = JSON.parse((await readFile(rawPath, 'utf8')).trim());
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
+      );
+      for (const record of [raw.request, raw.response, normalized]) {
+        assert.equal(record.requestShape, 'openai-responses');
+        assert.equal(record.effort, 'medium');
+        assert.equal(record.transport, 'tunnel');
+      }
+      assert.deepEqual(normalized.values, [1, 2, 3, 4]);
+      assert.equal(normalized.usage.output_tokens, 7);
+      assert.equal(normalized.usage.output_tokens_details.reasoning_tokens, 3);
+    },
+  );
+});
+
+test('explicit HTTP 4xx is never retried', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let calls = 0;
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'gpt-5.6-sol',
+    protocol: 'openai',
+    challenges: [challenge],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 3,
+    fetchImpl: async () => {
+      calls += 1;
+      return {
+        ok: false,
+        status: 404,
+        headers: { get: () => null },
+      };
+    },
+  });
+  assert.equal(calls, 1);
+  assert.match(result.failures[0].message, /HTTP 404/);
+});

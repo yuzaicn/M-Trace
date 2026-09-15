@@ -126,6 +126,7 @@ export function validateBank(
       ![
         'openai-chat-completions',
         'openai-reasoning-chat-completions',
+        'openai-responses',
         'anthropic-messages',
       ].includes(entry.requestShape)
     ) {
@@ -134,13 +135,17 @@ export function validateBank(
     if (entry.effort !== null && typeof entry.effort !== 'string')
       throw new TypeError(`${path}.effort must be a string or null`);
     if (
-      entry.requestShape === 'openai-reasoning-chat-completions' &&
+      ['openai-reasoning-chat-completions', 'openai-responses'].includes(
+        entry.requestShape,
+      ) &&
       typeof entry.effort !== 'string'
     ) {
       throw new TypeError(`${path}.effort is required for reasoning requests`);
     }
     if (
-      entry.requestShape !== 'openai-reasoning-chat-completions' &&
+      !['openai-reasoning-chat-completions', 'openai-responses'].includes(
+        entry.requestShape,
+      ) &&
       entry.effort !== null
     ) {
       throw new TypeError(
@@ -163,6 +168,14 @@ export function validateBank(
       );
     }
     if (
+      entry.requestShape === 'openai-responses' &&
+      entry.generationOptions.reasoning?.effort !== entry.effort
+    ) {
+      throw new TypeError(
+        `${path}.generationOptions.reasoning.effort must match effort`,
+      );
+    }
+    if (
       ['temperature', 'top_p', 'max_tokens'].some((field) =>
         Object.hasOwn(entry.generationOptions, field),
       )
@@ -170,6 +183,9 @@ export function validateBank(
       throw new TypeError(
         `${path}.generationOptions contains a forbidden Suite 2 option`,
       );
+    }
+    if (!['direct', 'tunnel'].includes(entry.transport)) {
+      throw new TypeError(`${path}.transport must be direct or tunnel`);
     }
     if (entry.usage !== null) {
       if (

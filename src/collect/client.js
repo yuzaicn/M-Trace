@@ -14,8 +14,11 @@ const ALLOWED_RESPONSE_HEADERS = [
   'retry-after',
 ];
 
-function endpointFor(baseUrl, protocol) {
+function endpointFor(baseUrl, protocol, requestShape) {
   const clean = baseUrl.replace(/\/$/, '');
+  if (requestShape === 'openai-responses') {
+    return `${clean}${clean.endsWith('/v1') ? '' : '/v1'}/responses`;
+  }
   return protocol === 'anthropic'
     ? `${clean}/v1/messages`
     : `${clean}${clean.endsWith('/v1') || clean.endsWith('/v1beta/openai') ? '' : '/v1'}/chat/completions`;
@@ -28,6 +31,7 @@ function requestFor(
   stream,
   generationOptions = {},
   samplingMode = 'provider-default',
+  requestShape,
 ) {
   if (!['challenge-temperature', 'provider-default'].includes(samplingMode)) {
     throw new Error('unsupported sampling mode');
@@ -41,6 +45,33 @@ function requestFor(
     );
   }
   const maxOutputTokens = Math.max(512, challenge.params.sequenceLength * 4);
+  if (requestShape === 'openai-responses') {
+    if (samplingMode !== 'provider-default') {
+      throw new Error(
+        'openai-responses is only supported with provider-default sampling',
+      );
+    }
+    if (
+      [
+        'temperature',
+        'top_p',
+        'max_tokens',
+        'max_completion_tokens',
+        'max_output_tokens',
+      ].some((field) => Object.hasOwn(generationOptions, field))
+    ) {
+      throw new Error(
+        'openai-responses provider-default sampling forbids explicit sampling and output-budget overrides',
+      );
+    }
+    return {
+      ...generationOptions,
+      model,
+      input: challenge.prompt,
+      max_output_tokens: 4096,
+      stream,
+    };
+  }
   if (protocol === 'anthropic') {
     if (samplingMode === 'provider-default') {
       throw new Error(
@@ -85,7 +116,13 @@ function requestFor(
   return request;
 }
 
-function requestShapeFor(protocol, generationOptions) {
+function requestShapeFor(protocol, generationOptions, requestedRequestShape) {
+  if (requestedRequestShape !== undefined) {
+    if (requestedRequestShape !== 'openai-responses' || protocol !== 'openai') {
+      throw new Error('unsupported explicit request shape');
+    }
+    return requestedRequestShape;
+  }
   if (protocol === 'anthropic') return 'anthropic-messages';
   return Object.hasOwn(generationOptions, 'reasoning_effort')
     ? 'openai-reasoning-chat-completions'
@@ -131,7 +168,15 @@ function redactSensitive(value, sensitive) {
   return value;
 }
 
-function extractNonStream(protocol, body) {
+function responseText(body) {
+  return (body.output ?? [])
+    .flatMap((item) => item.content ?? [])
+    .filter((part) => part.type === 'output_text')
+    .map((part) => part.text ?? '')
+    .join('');
+}
+
+function extractNonStream(protocol, body, requestShape) {
   if (protocol === 'anthropic') {
     return {
       text: (body.content ?? [])
@@ -143,6 +188,15 @@ function extractNonStream(protocol, body) {
       finishReason: body.stop_reason,
     };
   }
+  if (requestShape === 'openai-responses') {
+    return {
+      text: responseText(body),
+      selfReportedModel: body.model,
+      systemFingerprint: body.system_fingerprint,
+      usage: body.usage,
+      finishReason: body.status,
+    };
+  }
   return {
     text: body.choices?.[0]?.message?.content ?? '',
     selfReportedModel: body.model,
@@ -152,7 +206,7 @@ function extractNonStream(protocol, body) {
   };
 }
 
-function consumeEvent(protocol, payload, aggregate) {
+function consumeEvent(protocol, requestShape, payload, aggregate) {
   if (protocol === 'anthropic') {
     if (
       payload.type === 'content_block_delta' &&
@@ -168,6 +222,19 @@ function consumeEvent(protocol, payload, aggregate) {
       aggregate.finishReason = payload.delta?.stop_reason;
       aggregate.usage = { ...aggregate.usage, ...payload.usage };
     }
+  } else if (requestShape === 'openai-responses') {
+    if (payload.type === 'response.output_text.delta') {
+      aggregate.text += payload.delta ?? '';
+    }
+    if (
+      payload.type === 'response.completed' ||
+      payload.type === 'response.incomplete'
+    ) {
+      aggregate.selfReportedModel = payload.response?.model;
+      aggregate.systemFingerprint = payload.response?.system_fingerprint;
+      aggregate.usage = payload.response?.usage;
+      aggregate.finishReason = payload.response?.status;
+    }
   } else {
     aggregate.text += payload.choices?.[0]?.delta?.content ?? '';
     aggregate.selfReportedModel ??= payload.model;
@@ -179,7 +246,7 @@ function consumeEvent(protocol, payload, aggregate) {
   }
 }
 
-async function readSse(protocol, response, now) {
+async function readSse(protocol, requestShape, response, now) {
   const aggregate = { text: '', chunkCount: 0, interChunkMs: [] };
   const decoder = new TextDecoder();
   let buffer = '';
@@ -197,7 +264,7 @@ async function readSse(protocol, response, now) {
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
         if (!data || data === '[DONE]') continue;
-        consumeEvent(protocol, JSON.parse(data), aggregate);
+        consumeEvent(protocol, requestShape, JSON.parse(data), aggregate);
       }
     }
   }
@@ -251,6 +318,8 @@ export async function collect({
   timeoutMs = 20_000,
   generationOptions = {},
   samplingMode = 'provider-default',
+  requestShape: requestedRequestShape,
+  transport = 'direct',
   requireOfficialOpenAI = false,
   fetchImpl = globalThis.fetch,
   now = Date.now,
@@ -264,6 +333,13 @@ export async function collect({
     throw new Error('rawPath and normalizedPath must be different files');
   if (!['openai', 'anthropic'].includes(protocol))
     throw new Error('unsupported protocol');
+  if (!['direct', 'tunnel'].includes(transport))
+    throw new Error('transport must be direct or tunnel');
+  const requestShape = requestShapeFor(
+    protocol,
+    generationOptions,
+    requestedRequestShape,
+  );
   if (requireOfficialOpenAI) {
     let endpoint;
     try {
@@ -300,21 +376,25 @@ export async function collect({
     for (let attempt = 0; attempt <= retries && !succeeded; attempt += 1) {
       const startedAt = now();
       try {
-        const response = await fetchImpl(endpointFor(baseUrl, protocol), {
-          method: 'POST',
-          headers: headersFor(protocol, key),
-          body: JSON.stringify(
-            requestFor(
-              protocol,
-              model,
-              challenge,
-              stream,
-              generationOptions,
-              samplingMode,
+        const response = await fetchImpl(
+          endpointFor(baseUrl, protocol, requestShape),
+          {
+            method: 'POST',
+            headers: headersFor(protocol, key),
+            body: JSON.stringify(
+              requestFor(
+                protocol,
+                model,
+                challenge,
+                stream,
+                generationOptions,
+                samplingMode,
+                requestShape,
+              ),
             ),
-          ),
-          signal: globalThis.AbortSignal.timeout(timeoutMs),
-        });
+            signal: globalThis.AbortSignal.timeout(timeoutMs),
+          },
+        );
         if (!response.ok) {
           const retriable = response.status === 429 || response.status >= 500;
           if (retriable && attempt < retries) {
@@ -328,18 +408,21 @@ export async function collect({
             );
             continue;
           }
-          throw new Error(`upstream returned HTTP ${response.status}`);
+          const error = new Error(`upstream returned HTTP ${response.status}`);
+          error.retryable = retriable;
+          throw error;
         }
         const isStream = response.headers
           .get('content-type')
           ?.includes('text/event-stream');
         let extracted;
         let rawBody = null;
-        if (isStream) extracted = await readSse(protocol, response, now);
+        if (isStream)
+          extracted = await readSse(protocol, requestShape, response, now);
         else {
           rawBody = await response.json();
           extracted = {
-            ...extractNonStream(protocol, rawBody),
+            ...extractNonStream(protocol, rawBody, requestShape),
             chunkCount: 1,
             interChunkMs: [],
           };
@@ -349,8 +432,10 @@ export async function collect({
           samplingMode === 'provider-default'
             ? 'provider-default'
             : 'challenge-parameter';
-        const effort = generationOptions.reasoning_effort ?? null;
-        const requestShape = requestShapeFor(protocol, generationOptions);
+        const effort =
+          generationOptions.reasoning?.effort ??
+          generationOptions.reasoning_effort ??
+          null;
         const metadata = {
           requestId: response.headers.get('x-request-id') ?? null,
           challengeId: challenge.id,
@@ -358,6 +443,7 @@ export async function collect({
           suiteVersion: challenge.suiteVersion ?? null,
           evaluationRole: challenge.evaluationRole ?? 'scored',
           protocol,
+          transport,
           requestedModel: model,
           receivedAt,
           latencyMs: now() - startedAt,
@@ -384,6 +470,7 @@ export async function collect({
             suiteVersion: challenge.suiteVersion ?? null,
             evaluationRole: challenge.evaluationRole ?? 'scored',
             protocol,
+            transport,
             requestedModel: model,
             attempt,
             samplingSource,
@@ -393,6 +480,7 @@ export async function collect({
           },
           response: { ...metadata, text: safeText, body: safeBody },
           samplingSource,
+          transport,
           effort,
           requestShape,
           generationOptions,
@@ -427,12 +515,13 @@ export async function collect({
         summary.completed += 1;
         succeeded = true;
       } catch (error) {
-        if (attempt === retries)
+        if (attempt === retries || error.retryable === false) {
           summary.failures.push({
             challengeId: challenge.id,
             message: redactSensitive(error.message, [key, baseUrl]),
           });
-        else await sleep(250 * 2 ** attempt);
+          break;
+        } else await sleep(250 * 2 ** attempt);
       }
     }
     if (interval > 0) await sleep(interval);

@@ -19,6 +19,7 @@ function fixture() {
     requestShape: 'openai-reasoning-chat-completions',
     effort: 'none',
     generationOptions: { reasoning_effort: 'none' },
+    transport: 'direct',
     usage: null,
     systemFingerprint: null,
     collectedAt: '2026-09-14T00:00:00.000Z',
@@ -70,6 +71,11 @@ test('published JSON schema pins Suite 2 and all required additions', async () =
     'gpt-5.6',
     'gpt-6',
   ]);
+  assert.ok(
+    schema.$defs.entry.properties.requestShape.enum.includes(
+      'openai-responses',
+    ),
+  );
   for (const field of [
     'minRelativeMargin',
     'distanceScale',
@@ -84,6 +90,7 @@ test('published JSON schema pins Suite 2 and all required additions', async () =
     'requestShape',
     'effort',
     'generationOptions',
+    'transport',
     'usage',
     'systemFingerprint',
   ]) {
@@ -116,6 +123,17 @@ test('rejects schema, suite, extractor, provenance, family, and calibration drif
       (bank) => (bank.entries[0].aliases = ['gpt-alias', 'gpt-alias']),
       /aliases contains duplicates/,
     ],
+    [
+      (bank) => {
+        bank.entries[0].requestShape = 'openai-responses';
+        bank.entries[0].generationOptions = {
+          reasoning: { effort: 'medium' },
+        };
+        bank.entries[0].effort = 'none';
+      },
+      /reasoning\.effort must match effort/,
+    ],
+    [(bank) => (bank.entries[0].transport = 'proxy'), /transport/],
   ]) {
     const bank = fixture();
     mutate(bank);

@@ -28,7 +28,7 @@
 
 2026-09-15 使用官方直连 key 查询 `/v1/models` 后确认：5.5 与 5.5 Pro 的日期快照可见，因此入库与试点均固定到快照；Sol/Terra/Luna/Astra 没有可见快照，按 dateless ID 记录。`gpt-5.5-pro` 的试点必须使用非流式请求；全部候选仍以一次真实响应为最终证据。
 
-2026-09-15 试点首项 `gpt-5.5-pro-2026-04-23` 使用官方直连 Chat Completions、非流式、provider-default、`reasoning_effort=medium`、`retries=0`，返回 HTTP 404，未产生响应 JSONL 或 usage。按任一失败即停门禁，其余五项未调用；不得改用 rolling ID、改参数或自行补型，等待 owner 裁决。
+2026-09-15 试点首项 `gpt-5.5-pro-2026-04-23` 使用官方直连 Chat Completions、非流式、provider-default、`reasoning_effort=medium`、`retries=0`，返回 HTTP 404，未产生响应 JSONL 或 usage。后续裁决允许同一快照追加一次 Responses 诊断（`max_output_tokens=4096`、`reasoning.effort=medium`、无采样参数、4xx 零重试），其余五项继续走 Chat Completions；库构成不变。
 
 ## 20 个库外开放集身份（6/6/6/2）
 

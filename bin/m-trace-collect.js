@@ -22,7 +22,7 @@ function jsonOption(name) {
 
 if (process.argv.includes('--help')) {
   console.log(
-    'Usage: m-trace-collect --protocol openai|anthropic --base-url URL --model ID --key-env ENV --raw FILE --normalized FILE [--pilot-integers N] [--sampling-mode challenge-temperature|provider-default] [--generation-options-json JSON] [--official-openai-only]',
+    'Usage: m-trace-collect --protocol openai|anthropic --base-url URL --model ID --key-env ENV --raw FILE --normalized FILE [--pilot-integers N] [--sampling-mode challenge-temperature|provider-default] [--request-shape openai-responses] [--transport direct|tunnel] [--generation-options-json JSON] [--official-openai-only]',
   );
   process.exit(0);
 }
@@ -56,6 +56,8 @@ const result = await collect({
   requestsPerMinute: Number(option('--rpm', '60')),
   timeoutMs: Number(option('--timeout-ms', '20000')),
   samplingMode: option('--sampling-mode', 'provider-default'),
+  requestShape: option('--request-shape'),
+  transport: option('--transport', 'direct'),
   generationOptions: jsonOption('--generation-options-json'),
   requireOfficialOpenAI: process.argv.includes('--official-openai-only'),
 });

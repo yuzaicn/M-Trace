@@ -67,7 +67,13 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
       probeResult,
     ]),
   );
-  assert.equal(libraryProbeStates['gpt-5.5-pro-2026-04-23'], 'failed-http-404');
+  assert.equal(
+    libraryProbeStates['gpt-5.5-pro-2026-04-23'],
+    'transport-unreachable-before-http',
+  );
+  assert.ok(
+    manifest.libraryModels.every(({ transport }) => transport === 'direct'),
+  );
   assert.ok(
     manifest.libraryModels
       .filter(({ modelId }) => modelId !== 'gpt-5.5-pro-2026-04-23')
