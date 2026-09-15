@@ -181,6 +181,22 @@ export function renderIntegerPilot({ seed = 73013, sequenceLength = 16 } = {}) {
   };
 }
 
+export function selectChallengeSubset(challenges, { family, limit } = {}) {
+  let selected = family
+    ? challenges.filter((challenge) => challenge.family === family)
+    : [...challenges];
+  if (limit !== undefined) {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new RangeError('challenge limit must be a positive integer');
+    }
+    selected = selected.slice(0, limit);
+  }
+  if (selected.length === 0) {
+    throw new Error('challenge selection is empty');
+  }
+  return selected;
+}
+
 export function challengeHash(challenge) {
   return createHash('sha256').update(JSON.stringify(challenge)).digest('hex');
 }

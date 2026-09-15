@@ -5,6 +5,7 @@ import {
   renderChallengeSuite,
   renderIntegerPilot,
   selectBucketCount,
+  selectChallengeSubset,
 } from '../src/probe/challenge-suite.js';
 
 test('challenge suite is deterministic, adaptive, and contains three original families', () => {
@@ -96,4 +97,23 @@ test('default collection grid has 12 environments and 3 replicates per family ce
       );
     }
   }
+});
+
+test('challenge subsets support an explicit family and bounded canary size', () => {
+  const suite = renderChallengeSuite();
+  const selected = selectChallengeSubset(suite.challenges, {
+    family: 'adaptive-numeric-v1',
+    limit: 3,
+  });
+  assert.equal(selected.length, 3);
+  assert.ok(
+    selected.every(
+      ({ family, params }) =>
+        family === 'adaptive-numeric-v1' && params.sequenceLength === 384,
+    ),
+  );
+  assert.throws(
+    () => selectChallengeSubset(suite.challenges, { limit: 0 }),
+    /positive integer/,
+  );
 });

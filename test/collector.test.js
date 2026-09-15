@@ -457,7 +457,7 @@ test('OpenAI Responses variant uses native fields and records transport provenan
       const requestJson = JSON.parse(requestBody);
       assert.equal(requestJson.model, 'gpt-5.5-pro');
       assert.equal(requestJson.input, challenge.prompt);
-      assert.equal(requestJson.max_output_tokens, 4096);
+      assert.equal(requestJson.max_output_tokens, 8192);
       assert.equal(requestJson.max_completion_tokens, undefined);
       assert.equal(requestJson.temperature, undefined);
       assert.deepEqual(requestJson.reasoning, { effort: 'medium' });
@@ -542,4 +542,50 @@ test('explicit HTTP 4xx is never retried', async () => {
   });
   assert.equal(calls, 1);
   assert.match(result.failures[0].message, /HTTP 404/);
+});
+
+test('length mismatch is a failed record and remains resumable', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const normalizedPath = join(directory, 'normalized.jsonl');
+  let calls = 0;
+  await withServer(
+    (_request, response) => {
+      calls += 1;
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'short-output',
+          choices: [
+            { message: { content: '[1,2,3]' }, finish_reason: 'length' },
+          ],
+          usage: { completion_tokens: 3 },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const options = {
+        baseUrl,
+        key: 'mock-key',
+        model: 'short-output',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+        retries: 2,
+        samplingMode: 'challenge-temperature',
+      };
+      const first = await collect(options);
+      assert.equal(first.completed, 0);
+      assert.equal(first.failures[0].message, 'truncated-response');
+      const record = JSON.parse(await readFile(normalizedPath, 'utf8'));
+      assert.equal(record.parseFailure, 'truncated-response');
+      const second = await collect(options);
+      assert.equal(second.attempted, 1);
+      assert.equal(second.skipped, 0);
+    },
+  );
+  assert.equal(calls, 2);
 });

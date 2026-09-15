@@ -1,8 +1,46 @@
 {
   "manifestVersion": "1.1",
-  "status": "pilot-passed-awaiting-full-collection-approval",
+  "status": "full-collection-partial-rate-limited",
+  "collectionRound1": {
+    "status": "partial-rate-limited",
+    "requestedChallengesPerModel": 36,
+    "transport": "tunnel",
+    "attemptedByModel": {
+      "gpt-5.5-pro": 36,
+      "gpt-5.5": 36,
+      "gpt-5.6-sol": 0,
+      "gpt-5.6-terra": 0,
+      "gpt-5.6-luna": 0,
+      "gpt-6-astra": 0
+    },
+    "completedByModel": {
+      "gpt-5.5-pro": 23,
+      "gpt-5.5": 0,
+      "gpt-5.6-sol": 0,
+      "gpt-5.6-terra": 0,
+      "gpt-5.6-luna": 0,
+      "gpt-6-astra": 0
+    },
+    "failureCounts": {
+      "gpt-5.5-pro": {
+        "timeout": 1,
+        "http429": 12
+      },
+      "gpt-5.5": {
+        "http429": 36
+      }
+    },
+    "usageObserved": {
+      "inputTokens": 928,
+      "outputTokens": 82975,
+      "reasoningTokens": 63677,
+      "totalTokens": 83903,
+      "estimatedCny": 106.99
+    },
+    "stopReason": "HTTP 429 persisted after bounded retries and a 55-second backoff; no partial records promoted to the bank"
+  },
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:76e18632872cd19cdf89d99f9ab1b8666954e761c525569494817bd30bfca31c",
+  "contentHash": "sha256:2755ea96ab1fe24c1d4615a73224906df4bb7069ad27e9ce89606eb96b451bed",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,

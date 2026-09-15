@@ -3,6 +3,7 @@ import { collect } from '../src/collect/client.js';
 import {
   renderChallengeSuite,
   renderIntegerPilot,
+  selectChallengeSubset,
 } from '../src/probe/challenge-suite.js';
 
 function option(name, fallback) {
@@ -22,7 +23,7 @@ function jsonOption(name) {
 
 if (process.argv.includes('--help')) {
   console.log(
-    'Usage: m-trace-collect --protocol openai|anthropic --base-url URL --model ID --key-env ENV --raw FILE --normalized FILE [--pilot-integers N] [--sampling-mode challenge-temperature|provider-default] [--request-shape openai-responses] [--transport direct|tunnel] [--generation-options-json JSON] [--official-openai-only]',
+    'Usage: m-trace-collect --protocol openai|anthropic --base-url URL --model ID --key-env ENV --raw FILE --normalized FILE [--pilot-integers N] [--family FAMILY] [--limit N] [--sampling-mode challenge-temperature|provider-default] [--request-shape openai-responses] [--transport direct|tunnel] [--generation-options-json JSON] [--official-openai-only]',
   );
   process.exit(0);
 }
@@ -58,12 +59,17 @@ const suite = pilotIntegers
       replicates: Number(option('--replicates', '3')),
       sequenceLength: Number(option('--sequence-length', '384')),
     });
+const limitOption = option('--limit');
+const challenges = selectChallengeSubset(suite.challenges, {
+  family: option('--family'),
+  limit: limitOption === undefined ? undefined : Number(limitOption),
+});
 const result = await collect({
   baseUrl: option('--base-url'),
   key,
   model: option('--model'),
   protocol: option('--protocol'),
-  challenges: suite.challenges,
+  challenges,
   rawPath: option('--raw'),
   normalizedPath: option('--normalized'),
   stream: !process.argv.includes('--no-stream'),

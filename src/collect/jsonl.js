@@ -9,6 +9,7 @@ export async function completedIds(path) {
         .filter(Boolean)
         .map((line) => {
           const record = JSON.parse(line);
+          if (record.parseFailure) return undefined;
           return record.request?.challengeId ?? record.challengeId;
         })
         .filter(Boolean),

@@ -70,7 +70,7 @@ function requestFor(
       ...generationOptions,
       model,
       input: challenge.prompt,
-      max_output_tokens: 4096,
+      max_output_tokens: 8192,
       stream,
     };
   }
@@ -306,6 +306,35 @@ export function parseTokens(text, format) {
     .filter(Boolean);
 }
 
+function validateExtracted(challenge, extracted, values, tokens) {
+  if (
+    extracted.finishReason === 'length' ||
+    extracted.finishReason === 'incomplete'
+  ) {
+    return 'truncated-response';
+  }
+  if (challenge.family === 'symbol-choice-v1') {
+    if (!tokens) return 'non-symbol-or-unsupported';
+    return tokens.length === challenge.params.sequenceLength
+      ? null
+      : 'sequence-length-mismatch';
+  }
+  if (!values) return 'non-numeric-or-unsupported';
+  if (values.length !== challenge.params.sequenceLength) {
+    return 'sequence-length-mismatch';
+  }
+  if (!values.every(Number.isInteger)) return 'non-integer-value';
+  if (
+    Number.isFinite(challenge.params.rangeExclusive) &&
+    !values.every(
+      (value) => value >= 0 && value < challenge.params.rangeExclusive,
+    )
+  ) {
+    return 'value-out-of-range';
+  }
+  return null;
+}
+
 export async function collect({
   baseUrl,
   key,
@@ -496,13 +525,21 @@ export async function collect({
           challenge.family === 'symbol-choice-v1'
             ? parseTokens(extracted.text, challenge.format)
             : null;
-        const fingerprint = tokens?.length
-          ? categoricalFingerprint(tokens, challenge.params)
-          : values &&
-              challenge.params.bucketCount &&
-              challenge.params.rangeExclusive
-            ? numericFingerprint(values, challenge.params)
-            : null;
+        const parseFailure = validateExtracted(
+          challenge,
+          extracted,
+          values,
+          tokens,
+        );
+        const fingerprint =
+          !parseFailure && tokens?.length
+            ? categoricalFingerprint(tokens, challenge.params)
+            : !parseFailure &&
+                values &&
+                challenge.params.bucketCount &&
+                challenge.params.rangeExclusive
+              ? numericFingerprint(values, challenge.params)
+              : null;
         await appendJsonLine(normalizedPath, {
           recordType: 'normalized-probe-v1',
           ...metadata,
@@ -514,8 +551,15 @@ export async function collect({
           values,
           tokens,
           fingerprint,
-          parseFailure: values ? null : 'non-numeric-or-unsupported',
+          parseFailure,
         });
+        if (parseFailure) {
+          summary.failures.push({
+            challengeId: challenge.id,
+            message: parseFailure,
+          });
+          break;
+        }
         summary.completed += 1;
         succeeded = true;
       } catch (error) {

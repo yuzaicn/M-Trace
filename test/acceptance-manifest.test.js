@@ -11,6 +11,15 @@ const manifestPath = new URL(
 test('acceptance manifest hash, generation groups, strata, and identities are frozen consistently', async () => {
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   assert.equal(manifest.contentHash, contentHash(manifest));
+  assert.equal(manifest.status, 'full-collection-partial-rate-limited');
+  assert.deepEqual(manifest.collectionRound1.completedByModel, {
+    'gpt-5.5-pro': 23,
+    'gpt-5.5': 0,
+    'gpt-5.6-sol': 0,
+    'gpt-5.6-terra': 0,
+    'gpt-5.6-luna': 0,
+    'gpt-6-astra': 0,
+  });
   assert.equal(manifest.libraryModels.length, 6);
   assert.equal(manifest.slots.length, 20);
   assert.equal(manifest.availability.length, 20);
