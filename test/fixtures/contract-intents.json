@@ -1,7 +1,7 @@
 {
   "$comment": "契约夹具清单 / Contract fixture manifest. 本文件是「契约意图 → 测试」的对照表。它存在的理由：契约里的每一条硬要求都必须能被一个具名测试指出来，否则契约只是文档。新增契约条款 → 必须在此登记一条 intent。",
   "schemaVersion": 1,
-  "interfaceVersion": "1.0",
+  "interfaceVersion": "1.1",
   "categories": [
     {
       "id": "golden",
@@ -118,6 +118,24 @@
       "id": "I-15",
       "clause": "契约 §6 —— 验收夹具必须常驻「库外模型落到 unknown」这一回归点",
       "test": "test/contract/fixtures.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-17",
+      "clause": "契约 §3.10.1 缺口1 —— 失效条件是必填非空字段；恒定项 snapshot-in-time + library-evolves 由 ALWAYS_PRESENT_INVALIDATIONS 钉住；margin-inseparable 独立于 samples-low",
+      "test": "test/contract/report-contract.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-18",
+      "clause": "契约 §3.10.1 缺口2 —— 证据信号是独立字段 signals[]，由引擎汇总而非报告层派生；不提供任何合成总分字段",
+      "test": "test/contract/report-contract.test.ts",
+      "priority": "P0"
+    },
+    {
+      "id": "I-19",
+      "clause": "契约 §2.3/§3.10.1 —— selfReportAgreement 家族档口径为「属于观测世代」，报告层不做字符串比对，映射不到→null（self.unknown）；报告数据模型不含退出码",
+      "test": "test/contract/report-contract.test.ts",
       "priority": "P0"
     }
   ]

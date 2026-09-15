@@ -7,10 +7,13 @@
 > 变更流程：任何签名变更 = 本文档 minor 版本 +1 + 通知全部受影响下游；任何阈值变更 = 库版本变更，**不是**契约变更。
 > 契约冻结后，`src/types/` 之外**任何人不得**单方面修改。
 
-**v1.1 变更（新增字段，向后兼容）**：按 GUCH-361 设计说明 §10 收口报告契约 ——
+**v1.1 变更（新增字段 / 收口口径，向后兼容）**：按 GUCH-361 设计说明 §10 收口报告契约，
+并随 GUCH-363 冻结两条设计侧口径 ——
 `AttributionVerdict` 增 `invalidations[]`（必填非空）与 `signals[]`（证据信号挂在这里，
-报告层经 `verdict` 读取，不在 VM 上重复一份）；
-`ReportViewModel` 增 `qualityGrade` / `target.probeWindow`，
+报告层经 `verdict` 读取，不在 VM 上重复一份）；`InvalidationCode` 增 `margin-inseparable`
+（候选在阈值内但最近两名 margin 过小，独立于 `samples-low`）；`selfReportAgreement` 家族档
+口径定为「自报型号是否**属于**观测世代」（报告层不做字符串比对，映射不到 → `null` →
+`self.unknown` 徽章）；`ReportViewModel` 增 `qualityGrade` / `target.probeWindow`，
 `ReportChart.series[]` 增 `role`，`ReportEvidenceRow` 增 `status`，
 `appendix` 增 `evidenceHash` / `libraryContentHash` / `randomization`。
 详见 §3.10.1。受影响下游：GUCH-365（报告渲染）。
@@ -55,6 +58,7 @@ Mika 指定的权威顺序：**分析报告 > 工程计划 > （合规约束一�
 | 报告       | `src/report/`                   | 视图模型 + HTML 渲染（纯函数）                                  | 纯                         | **P0**        | 阶段 3（GUCH-365） |
 | i18n       | `src/i18n/`                     | 文案目录 + 确定性格式化                                         | 纯（加载注入）             | **P0**        | 阶段 3（GUCH-365） |
 | CLI        | `src/cli/`                      | 参数解析、编排、退出码                                          | 有副作用                   | **P0**        | 阶段 3（GUCH-366） |
+| 本地读写   | `src/io/`                       | 本地文件 / stdout 读写端口（唯一副作用出口，由 CLI 注入）       | 有副作用                   | **P0**        | 阶段 3（GUCH-366） |
 | 行为族     | `src/probe/families/behavior-*` | 上下文断点、拒绝边界、工具 schema、知识截止一致性               | 有副作用                   | **P1 预留**   | 阶段 3 之后        |
 | 协议族     | `src/probe/families/protocol-*` | SSE 节奏、usage 结构、错误码措辞（传输特征已在 P0 采集）        | 有副作用                   | **P1 预留**   | 阶段 3 之后        |
 | 文本统计族 | `src/probe/families/text-*`     | 分词边界、空白/标点习惯                                         | 有副作用                   | **P2 仅留位** | 不排期             |
@@ -265,8 +269,8 @@ GUCH-361 的设计说明提出 8 条契约缺口。**缺口 1 / 2 / 4 是硬需�
 
 ```ts
 type InvalidationCode =
-  | 'rewrite-suspect' | 'library-stale' | 'samples-low'
-  | 'snapshot-in-time' | 'extraction-mismatch'
+  | 'rewrite-suspect' | 'library-stale' | 'samples-low' | 'margin-inseparable'
+  | 'snapshot-in-time' | 'library-evolves' | 'extraction-mismatch'
   | 'transport-noise' | 'partial-run';
 
 interface InvalidationBasis { evidenceKey: string; observed: string }
@@ -276,8 +280,20 @@ interface InvalidationFlag { code: InvalidationCode; basis: InvalidationBasis }
 invalidations: InvalidationFlag[];   // 必填且非空
 ```
 
-- **必填且非空**，不是可选数组。`'snapshot-in-time'` 是恒定项（任何结论都只代表本次探测时段），
+- **必填且非空**，不是可选数组。`'snapshot-in-time'` 与 `'library-evolves'` 是**恒定项**
+  （任何结论都只代表本次探测时段；参考库更新后本结论可能改变），
   所以"引擎忘了填"在类型上不可表达，报告层不必为空数组写兜底文案。
+  `ALWAYS_PRESENT_INVALIDATIONS` 供报告层断言失效条件栏不为空。
+- `'library-evolves'` 与 `'library-stale'` 不是一回事：前者说"库将来会变，本结论可能被新库推翻"，
+  是结论的固有性质；后者说"当前库版本早于观测"，是本次状态的问题。合并会误报"库过时了"。
+  设计说明 §3.2 要求「无法判定」档必含「参考库更新后结论可能改变」，由前者承载。
+- `'margin-inseparable'` 与 `'samples-low'` 不是一回事，两者的**恢复路径不同**（产品经理要求失效条件
+  必须给出可执行的恢复路径）：`'samples-low'` 是**有效样本不足**（quality 门槛未过），恢复路径是
+  "先把样本量做够再判"；`'margin-inseparable'` 是**样本够了、候选也都在阈值内，但最近两名 margin 过小
+  分不开**，恢复路径是"增加样本量后可能分开 / 可能定位到具体型号"。它的 `basis.evidenceKey` 落在
+  `'attribution-margin'` / `'attribution-rel-margin'`（最近两名的距离差与相对差，对应
+  `GateCalibration.attribution` 的 `minMargin` / `minRelativeMargin`）。这个码对应 §2.2 第 5 步的
+  `'ambiguous'` 判定，让"为什么给不出具体型号"在失效条件栏里有据可查，而不是只落一个 `ambiguous` 退出码。
 - `reasons[]` 是**判定依据**，`invalidations[]` 是**失效条件**，语义相反必须分栏。
   渲染层**不得**从 `reasons[]` 派生失效条件；`invalidations` 为空是契约违规，走 `RENDER_FAILED`，不退化成兜底展示。
 - `basis` 指向支撑该码的已上报数据（信号键 / 统计量名）。渲染层不解析它，
@@ -343,8 +359,26 @@ appendix: {
 | 8   | `limitations` / `disclaimerKeys` 的 key 集                          | key 由契约冻结，正文归产品设计师                          |
 
 **附带收口（GUCH-361 §2 的渲染前置校验）**：`out-of-library` 与 `ambiguous` 两档下
-`claimedModel` **必须为 `undefined`**，`familyGuess` 只在族级命中时才存在。
+`claimedModel` **必须为 `undefined`**，`familyId` 只在族级命中时才存在。
 不得填"库里最近候选的名字" —— 那正是 36/36 硬归因的复现路径。
+
+**缺口补充（GUCH-363 冻结）—— 家族档 `selfReportAgreement` 口径与呈现规则**
+
+设计说明 v1.0 曾把「家族可分」画进「歧义」档；按 §2.3 判定语义，家族可分**永不落歧义**，
+整体在 `in-library-family`。据此冻结如下（双语正文归产品设计师）：
+
+- **口径**：家族档下 `selfReportAgreement` = 自报型号是否**属于**观测到的世代 —— 由库的
+  别名 / 世代映射判定（如 `gpt-5.6-sol`、`gpt-5.6-terra` 都归 `gpt-5.6`）。因此
+  "自报 5.6-sol、观测 5.6 世代" = `true`（属于，不是冲突）。**报告层一律不做字符串比对**，
+  比对在引擎侧按库映射完成。它决定家族档落「①一致」还是「②不一致」版式。
+- **映射不到 → `null`**：自报型号在库映射里找不到世代时 `selfReportAgreement = null`，
+  报告走「自报世代未知」徽章（设计侧 `self.unknown`），**不得**由 `null` 反推一致或冲突。
+  `null` 的三个来源统一收在这里：端点未自报、结论本身无型号 / 世代可比、库映射找不到世代。
+- **呈现（阶段 3 GUCH-365）**：家族档仍用「①一致 / ②不一致」两种版式，**不新增第五种配色**；
+  世代展示名由报告层从 `familyId`（承载 `modelFamily` 世代标识）映射得到
+  （如 `gpt-5.6` → "GPT-5.6 世代 / generation"），**无需新增契约字段**。
+- **诚实性红线**：家族档报告**永不**给出厂商级措辞（不写"OpenAI 模型""疑似 OpenAI"
+  "GPT 系列（世代未知）"）—— 结论要么落到具体世代，要么落 `unknown`，中间没有"厂商但世代未知"这一档。
 
 ### 3.11 i18n `src/i18n/`
 

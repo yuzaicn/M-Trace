@@ -117,9 +117,18 @@ export interface AttributionVerdict {
   /** 第一段的完整评估结果；未运行时为 undefined。 */
   credibility?: import('./credibility.js').CredibilityAssessment;
   /**
-   * 自报模型与观测结论的一致性。
-   * `null` 表示无法比较（端点未自报，或结论本身是 unknown）。
-   * **自报永不参与判定**，只作旁证，并在冲突时把退出码抬到 `EXIT.MISMATCH`。
+   * 自报模型与观测结论的一致性。**旁证，永不参与判定**；冲突时把退出码抬到 `EXIT.MISMATCH`。
+   *
+   * 判据按判定档不同，**报告层一律不做字符串比对**（比对在引擎侧按库的别名 / 世代映射完成）：
+   *  - `in-library`：自报型号是否等于命中的具体型号（经库别名归一）。
+   *  - `in-library-family`：自报型号是否**属于**观测到的世代 —— 由库的别名 / 世代映射判定
+   *    （如 `gpt-5.6-sol`、`gpt-5.6-terra` 都归 `gpt-5.6`）。因此「自报 5.6-sol，观测 5.6 世代」
+   *    = `true`（属于，不是冲突）。这决定家族档落「①一致」还是「②不一致」版式。
+   *  - `unknown` / `ambiguous`：结论本身无型号 / 世代可比 → `null`。
+   *
+   * `null` = **无法比较**，三种来源都落这里：端点未自报、结论无可比对象、
+   * 或自报型号在库映射里**找不到世代**。报告层据此走「自报世代未知」徽章（设计侧 `self.unknown`），
+   * **不得**由 `null` 反推一致或冲突。
    */
   selfReportAgreement: boolean | null;
   /** 本次判定使用的库版本与哈希 —— 缺了它，结论无法被第三方复验。 */
@@ -164,11 +173,22 @@ export interface AttributionVerdict {
 export type InvalidationCode =
   | 'rewrite-suspect' // 改写比例超限，证据不可信
   | 'library-stale' // 库版本早于观测，可能是库未收录而非库外
-  | 'samples-low' // 有效样本不足
+  | 'samples-low' // 有效样本不足（quality 门槛未过）
+  | 'margin-inseparable' // 候选在阈值内但最近两名 margin 过小：增加样本量后可能分开 / 可能定位到具体型号
   | 'snapshot-in-time' // 恒定项：结论只代表本次探测时段
+  | 'library-evolves' // 恒定项：参考库更新后本结论可能改变
   | 'extraction-mismatch' // 提取算法版本与库不一致
   | 'transport-noise' // 传输层异常（非流式 / 截断）导致特征缺席
   | 'partial-run'; // 运行被中断
+
+/**
+ * 结论**恒定**携带的失效码：与本次探测做得好不好无关，
+ * 任何判定都成立。报告层可据此断言"失效条件栏不为空"。
+ */
+export const ALWAYS_PRESENT_INVALIDATIONS = [
+  'snapshot-in-time',
+  'library-evolves',
+] as const;
 
 /**
  * 支撑某个失效码的**已上报数据**。
@@ -177,7 +197,11 @@ export type InvalidationCode =
  * 这是让"这个失效码是真的"可验证、而不是一句免责话术的机制。
  */
 export interface InvalidationBasis {
-  /** 指向证据信号键或统计量名，如 `'rewrite-suspect-ratio'` / `'valid-sample-count'`。 */
+  /**
+   * 指向证据信号键或统计量名，如 `'rewrite-suspect-ratio'` / `'valid-sample-count'`；
+   * `'margin-inseparable'` 的依据落在 `'attribution-margin'` / `'attribution-rel-margin'`
+   * （最近两名距离差与相对差，对应 `GateCalibration.attribution` 的 `minMargin` / `minRelativeMargin`）。
+   */
   evidenceKey: string;
   /** 观测值的已格式化形态，供排障与契约测试比对，不进报告正文。 */
   observed: string;

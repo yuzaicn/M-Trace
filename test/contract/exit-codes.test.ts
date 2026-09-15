@@ -111,7 +111,7 @@ test('I-02: aborted transport maps to the interrupted code, not to a transport f
 });
 
 test('contract versions are declared and consistent with the intent manifest', async () => {
-  assert.equal(INTERFACE_VERSION, '1.0');
+  assert.equal(INTERFACE_VERSION, '1.1');
   assert.equal(SCHEMA_VERSION, 1);
 
   const manifest = JSON.parse(
