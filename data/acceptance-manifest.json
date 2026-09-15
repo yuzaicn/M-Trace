@@ -45,10 +45,21 @@
       "intervalSeconds": 8,
       "gate": "consecutive-two-200",
       "passed": false
+    },
+    "automatic429Retry": {
+      "model": "gpt-5.6-luna",
+      "status": "checkpointed-runtime-boundary",
+      "completedChallenges": 0,
+      "missingChallenges": 36,
+      "http429Responses": 5,
+      "cumulativeWaitSeconds": 900,
+      "pendingWaitSeconds": 600,
+      "nextAction": "resume pending wait, then continue cheap models before Pro gaps",
+      "estimatedCny": 0
     }
   },
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:71602bfe8b5c0a1207e74a7f7a4d246b2855a916306d79832d2be50a4edecc58",
+  "contentHash": "sha256:f6a4f7bc36bcaf1e3b99679df0372b2009686f8e4b731cee7a765d5f1e2e07df",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,

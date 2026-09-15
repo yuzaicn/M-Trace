@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -135,6 +135,7 @@ test('collects OpenAI SSE, retries 429 indefinitely, resumes, and never persists
         ['before-wait', 'after-wait'],
       );
       assert.equal(checkpoints[0].checkpoint.waitMs, 60_000);
+      assert.equal(checkpoints[0].checkpoint.consecutive429Count, 1);
       assert.equal(checkpoints[0].checkpoint.cumulativeWaitMs, 0);
       assert.equal(checkpoints[0].checkpoint.plannedCumulativeWaitMs, 60_000);
       assert.equal(checkpoints[1].checkpoint.cumulativeWaitMs, 60_000);
@@ -196,6 +197,97 @@ test('429 retries do not consume bounded retries and clamp retry-after to ten mi
     },
   );
   assert.equal(calls, 4);
+});
+
+test('429 backoff resumes at the persisted exponential tier', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  await writeFile(
+    rawPath,
+    [
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 1,
+          phase: 'before-wait',
+          cumulativeWaitMs: 0,
+        },
+      },
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 1,
+          phase: 'after-wait',
+          cumulativeWaitMs: 60_000,
+        },
+      },
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 2,
+          phase: 'before-wait',
+          waitMs: 120_000,
+          cumulativeWaitMs: 60_000,
+          plannedCumulativeWaitMs: 180_000,
+        },
+      },
+    ]
+      .map(JSON.stringify)
+      .join('\n') + '\n',
+    { mode: 0o600 },
+  );
+  const waits = [];
+  let calls = 0;
+  await withServer(
+    (_request, response) => {
+      calls += 1;
+      if (calls === 1) {
+        response.writeHead(429);
+        response.end();
+        return;
+      }
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'self-json',
+          choices: [
+            { message: { content: '[1,2,3,4]' }, finish_reason: 'stop' },
+          ],
+          usage: { completion_tokens: 4 },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'requested-a',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath: join(directory, 'normalized.jsonl'),
+        stream: false,
+        retries: 0,
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+        sleep: async (waitMs) => waits.push(waitMs),
+      });
+      assert.equal(result.completed, 1);
+      assert.equal(result.retry429Count, 3);
+      assert.equal(result.cumulative429WaitMs, 420_000);
+      assert.deepEqual(waits, [120_000, 240_000]);
+      const checkpoints = (await readFile(rawPath, 'utf8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line))
+        .filter((record) => record.recordType === 'retry-checkpoint-v1');
+      assert.equal(checkpoints[3].checkpoint.resumed, true);
+      assert.equal(checkpoints[3].checkpoint.cumulativeWaitMs, 180_000);
+    },
+  );
 });
 
 test('collects Anthropic non-stream response', async () => {

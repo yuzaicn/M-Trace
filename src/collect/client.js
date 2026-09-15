@@ -439,7 +439,31 @@ export async function collect({
     }
     summary.attempted += 1;
     let succeeded = false;
-    let rateLimitRetry = 0;
+    let rateLimitRetry =
+      checkpointState.consecutive429ByChallenge[challenge.id] ?? 0;
+    const pendingWait = checkpointState.pendingWaitByChallenge[challenge.id];
+    if (pendingWait) {
+      const elapsedMs = Number.isFinite(pendingWait.startedAtMs)
+        ? Math.max(0, now() - pendingWait.startedAtMs)
+        : 0;
+      const remainingWaitMs = Math.max(0, pendingWait.waitMs - elapsedMs);
+      if (remainingWaitMs > 0) await sleep(remainingWaitMs);
+      summary.cumulative429WaitMs = Math.max(
+        summary.cumulative429WaitMs,
+        pendingWait.plannedCumulativeWaitMs ??
+          pendingWait.cumulativeWaitMs + pendingWait.waitMs,
+      );
+      await appendJsonLine(rawPath, {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          ...pendingWait,
+          phase: 'after-wait',
+          cumulativeWaitMs: summary.cumulative429WaitMs,
+          resumed: true,
+          remainingWaitMs,
+        },
+      });
+    }
     let boundedRetry = 0;
     let attempt = 0;
     while (!succeeded) {
@@ -483,6 +507,8 @@ export async function collect({
               httpStatus: 429,
               waitMs,
               retry429Count: summary.retry429Count,
+              consecutive429Count: rateLimitRetry + 1,
+              startedAtMs: now(),
             };
             await appendJsonLine(rawPath, {
               recordType: 'retry-checkpoint-v1',
