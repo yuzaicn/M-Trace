@@ -51,7 +51,10 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
       for await (const chunk of request) requestBody += chunk;
       const requestJson = JSON.parse(requestBody);
       assert.deepEqual(requestJson.thinking, { type: 'disabled' });
+      assert.equal(requestJson.max_completion_tokens, 512);
+      assert.equal(requestJson.max_tokens, undefined);
       assert.equal(requestJson.temperature, 1);
+      assert.deepEqual(requestJson.stream_options, { include_usage: true });
       if (calls === 1) {
         response.writeHead(429, { 'retry-after': '0' });
         response.end();
@@ -62,7 +65,7 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
         'x-request-id': 'mock-request',
       });
       response.end(
-        `data: {"model":"self-a","choices":[{"delta":{"content":"[1,2"}}]}\n\ndata: {"choices":[{"delta":{"content":",3,4]"},"finish_reason":"stop"}],"debug":"${secret}"}\n\ndata: [DONE]\n\n`,
+        `data: {"model":"self-a","choices":[{"delta":{"content":"[1,2"}}]}\n\ndata: {"choices":[{"delta":{"content":",3,4]"},"finish_reason":"stop"}],"debug":"${secret}"}\n\ndata: {"choices":[],"usage":{"prompt_tokens":8,"completion_tokens":4,"total_tokens":12}}\n\ndata: [DONE]\n\n`,
       );
     },
     async (baseUrl) => {
@@ -103,6 +106,11 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
       assert.deepEqual(normalized.values, [1, 2, 3, 4]);
       assert.deepEqual(normalized.generationOptions, {
         thinking: { type: 'disabled' },
+      });
+      assert.deepEqual(normalized.usage, {
+        prompt_tokens: 8,
+        completion_tokens: 4,
+        total_tokens: 12,
       });
       const raw = JSON.parse((await readFile(rawPath, 'utf8')).trim());
       assert.deepEqual(raw.request.generationOptions, {
@@ -222,6 +230,145 @@ test('collects OpenAI non-stream response', async () => {
       );
       assert.equal(normalized.streamed, false);
       assert.equal(normalized.selfReportedModel, 'self-json');
+    },
+  );
+});
+
+test('rejects provider-default mode for non-OpenAI protocols before a request', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let requested = false;
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'requested-b',
+    protocol: 'anthropic',
+    challenges: [challenge],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 0,
+    samplingMode: 'provider-default',
+    fetchImpl: async () => {
+      requested = true;
+      throw new Error('must not be reached');
+    },
+  });
+  assert.equal(requested, false);
+  assert.deepEqual(result.failures, [
+    {
+      challengeId: challenge.id,
+      message: 'provider-default sampling requires openai protocol',
+    },
+  ]);
+});
+
+test('official OpenAI guard rejects compatibility proxies before a request', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let requested = false;
+  await assert.rejects(
+    collect({
+      baseUrl: 'https://sub2api.example/v1',
+      key: 'mock-key',
+      model: 'gpt-5.6-sol',
+      protocol: 'openai',
+      challenges: [challenge],
+      rawPath: join(directory, 'raw.jsonl'),
+      normalizedPath: join(directory, 'normalized.jsonl'),
+      requestsPerMinute: 0,
+      requireOfficialOpenAI: true,
+      fetchImpl: async () => {
+        requested = true;
+        throw new Error('must not be reached');
+      },
+    }),
+    /requires https:\/\/api\.openai\.com/,
+  );
+  assert.equal(requested, false);
+});
+
+test('provider-default mode rejects explicit sampling overrides', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'gpt-5.6-sol',
+    protocol: 'openai',
+    challenges: [challenge],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 0,
+    samplingMode: 'provider-default',
+    generationOptions: { reasoning_effort: 'none', temperature: 1 },
+    fetchImpl: async () => {
+      throw new Error('must not be reached');
+    },
+  });
+  assert.match(result.failures[0].message, /forbids temperature/);
+});
+
+test('OpenAI provider-default variant omits temperature and records reasoning provenance and usage', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const normalizedPath = join(directory, 'normalized.jsonl');
+  await withServer(
+    async (request, response) => {
+      let requestBody = '';
+      for await (const chunk of request) requestBody += chunk;
+      const requestJson = JSON.parse(requestBody);
+      assert.equal(requestJson.model, 'gpt-5.6-sol');
+      assert.equal(requestJson.max_completion_tokens, 512);
+      assert.equal(requestJson.max_tokens, undefined);
+      assert.equal(requestJson.temperature, undefined);
+      assert.equal(requestJson.reasoning_effort, 'none');
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'gpt-5.6-sol',
+          system_fingerprint: 'fp_mock',
+          choices: [
+            { message: { content: '[1,2,3,4]' }, finish_reason: 'stop' },
+          ],
+          usage: {
+            prompt_tokens: 9,
+            completion_tokens: 7,
+            total_tokens: 16,
+            completion_tokens_details: { reasoning_tokens: 3 },
+          },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: 'official-mock-key',
+        model: 'gpt-5.6-sol',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath,
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+        samplingMode: 'provider-default',
+        generationOptions: { reasoning_effort: 'none' },
+      });
+      assert.equal(result.completed, 1);
+      const raw = JSON.parse((await readFile(rawPath, 'utf8')).trim());
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
+      );
+      for (const record of [raw.request, raw.response, normalized]) {
+        assert.equal(record.samplingSource, 'provider-default');
+        assert.equal(record.effort, 'none');
+        assert.equal(record.requestShape, 'openai-reasoning-chat-completions');
+      }
+      assert.deepEqual(normalized.usage, {
+        prompt_tokens: 9,
+        completion_tokens: 7,
+        total_tokens: 16,
+        completion_tokens_details: { reasoning_tokens: 3 },
+      });
+      assert.equal(normalized.systemFingerprint, 'fp_mock');
     },
   );
 });

@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   challengeHash,
   renderChallengeSuite,
+  renderIntegerPilot,
   selectBucketCount,
 } from '../src/probe/challenge-suite.js';
 
@@ -36,6 +37,15 @@ test('challenge suite is deterministic, adaptive, and contains three original fa
     larger.challenges[0].params.rangeExclusive,
   );
   assert.match(challengeHash(first.challenges[0]), /^[0-9a-f]{64}$/);
+});
+
+test('integer pilot renders exactly one minimal parseable challenge', () => {
+  const pilot = renderIntegerPilot({ seed: 41, sequenceLength: 16 });
+  assert.equal(pilot.suiteVersion, 'pilot-1.0.0');
+  assert.equal(pilot.challenges.length, 1);
+  assert.equal(pilot.challenges[0].family, 'integer-pilot-v1');
+  assert.equal(pilot.challenges[0].params.sequenceLength, 16);
+  assert.match(pilot.challenges[0].prompt, /exactly 16/);
 });
 
 test('bucket count adapts while remaining a divisor of 256', () => {

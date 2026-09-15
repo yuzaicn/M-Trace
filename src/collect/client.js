@@ -27,25 +27,59 @@ function requestFor(
   challenge,
   stream,
   generationOptions = {},
+  samplingMode = 'challenge-temperature',
 ) {
+  if (!['challenge-temperature', 'provider-default'].includes(samplingMode)) {
+    throw new Error('unsupported sampling mode');
+  }
+  const maxOutputTokens = Math.max(512, challenge.params.sequenceLength * 4);
   if (protocol === 'anthropic') {
+    if (samplingMode === 'provider-default') {
+      throw new Error('provider-default sampling requires openai protocol');
+    }
     return {
       ...generationOptions,
       model,
-      max_tokens: Math.max(512, challenge.params.sequenceLength * 4),
+      max_tokens: maxOutputTokens,
       temperature: challenge.params.temperature,
       stream,
       messages: [{ role: 'user', content: challenge.prompt }],
     };
   }
-  return {
+  if (
+    samplingMode === 'provider-default' &&
+    ['temperature', 'top_p', 'max_tokens'].some((field) =>
+      Object.hasOwn(generationOptions, field),
+    )
+  ) {
+    throw new Error(
+      'provider-default sampling forbids temperature, top_p, and max_tokens generation options',
+    );
+  }
+  const request = {
     ...generationOptions,
     model,
-    max_tokens: Math.max(512, challenge.params.sequenceLength * 4),
-    temperature: challenge.params.temperature,
+    max_completion_tokens: maxOutputTokens,
     stream,
     messages: [{ role: 'user', content: challenge.prompt }],
   };
+  if (stream) {
+    request.stream_options = {
+      ...generationOptions.stream_options,
+      include_usage: true,
+    };
+  }
+  if (samplingMode === 'challenge-temperature') {
+    request.temperature = challenge.params.temperature;
+  }
+  return request;
+}
+
+function requestShapeFor(protocol, samplingMode) {
+  if (protocol === 'anthropic') return 'anthropic-messages';
+  return samplingMode === 'provider-default'
+    ? 'openai-reasoning-chat-completions'
+    : 'openai-chat-completions';
 }
 
 function headersFor(protocol, key) {
@@ -102,6 +136,7 @@ function extractNonStream(protocol, body) {
   return {
     text: body.choices?.[0]?.message?.content ?? '',
     selfReportedModel: body.model,
+    systemFingerprint: body.system_fingerprint,
     usage: body.usage,
     finishReason: body.choices?.[0]?.finish_reason,
   };
@@ -126,8 +161,11 @@ function consumeEvent(protocol, payload, aggregate) {
   } else {
     aggregate.text += payload.choices?.[0]?.delta?.content ?? '';
     aggregate.selfReportedModel ??= payload.model;
+    aggregate.systemFingerprint ??= payload.system_fingerprint;
     aggregate.finishReason ??= payload.choices?.[0]?.finish_reason;
-    aggregate.usage ??= payload.usage;
+    if (payload.usage) {
+      aggregate.usage = { ...aggregate.usage, ...payload.usage };
+    }
   }
 }
 
@@ -202,6 +240,8 @@ export async function collect({
   requestsPerMinute = 60,
   timeoutMs = 20_000,
   generationOptions = {},
+  samplingMode = 'challenge-temperature',
+  requireOfficialOpenAI = false,
   fetchImpl = globalThis.fetch,
   now = Date.now,
   sleep = delay,
@@ -214,6 +254,27 @@ export async function collect({
     throw new Error('rawPath and normalizedPath must be different files');
   if (!['openai', 'anthropic'].includes(protocol))
     throw new Error('unsupported protocol');
+  if (requireOfficialOpenAI) {
+    let endpoint;
+    try {
+      endpoint = new URL(baseUrl);
+    } catch {
+      throw new Error('official OpenAI collection requires a valid URL');
+    }
+    if (
+      protocol !== 'openai' ||
+      endpoint.origin !== 'https://api.openai.com' ||
+      !['/', '/v1', '/v1/'].includes(endpoint.pathname) ||
+      endpoint.username ||
+      endpoint.password ||
+      endpoint.search ||
+      endpoint.hash
+    ) {
+      throw new Error(
+        'official OpenAI collection requires https://api.openai.com with no proxy or extra path',
+      );
+    }
+  }
   // A raw line may have been flushed immediately before a crash. Only the
   // normalized file marks a challenge as transactionally complete.
   const done = await completedIds(normalizedPath);
@@ -233,7 +294,14 @@ export async function collect({
           method: 'POST',
           headers: headersFor(protocol, key),
           body: JSON.stringify(
-            requestFor(protocol, model, challenge, stream, generationOptions),
+            requestFor(
+              protocol,
+              model,
+              challenge,
+              stream,
+              generationOptions,
+              samplingMode,
+            ),
           ),
           signal: globalThis.AbortSignal.timeout(timeoutMs),
         });
@@ -267,6 +335,12 @@ export async function collect({
           };
         }
         const receivedAt = new Date(now()).toISOString();
+        const samplingSource =
+          samplingMode === 'provider-default'
+            ? 'provider-default'
+            : 'challenge-parameter';
+        const effort = generationOptions.reasoning_effort ?? null;
+        const requestShape = requestShapeFor(protocol, samplingMode);
         const metadata = {
           requestId: response.headers.get('x-request-id') ?? null,
           challengeId: challenge.id,
@@ -281,8 +355,12 @@ export async function collect({
           interChunkMs: extracted.interChunkMs,
           responseHeaders: pickHeaders(response.headers),
           selfReportedModel: extracted.selfReportedModel ?? null,
+          systemFingerprint: extracted.systemFingerprint ?? null,
           finishReason: extracted.finishReason ?? null,
           usage: extracted.usage ?? null,
+          samplingSource,
+          effort,
+          requestShape,
           generationOptions,
         };
         const safeText = redactSensitive(extracted.text, [key, baseUrl]);
@@ -294,6 +372,9 @@ export async function collect({
             protocol,
             requestedModel: model,
             attempt,
+            samplingSource,
+            effort,
+            requestShape,
             generationOptions,
           },
           response: { ...metadata, text: safeText, body: safeBody },

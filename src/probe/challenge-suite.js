@@ -134,6 +134,41 @@ export function renderChallengeSuite({
   return { suiteVersion: '1.0.0', seed, challenges };
 }
 
+export function renderIntegerPilot({ seed = 73013, sequenceLength = 16 } = {}) {
+  if (!Number.isInteger(sequenceLength) || sequenceLength < 1) {
+    throw new RangeError('pilot sequenceLength must be a positive integer');
+  }
+  const bucketCount = 8;
+  const rangeExclusive = numericDomain(sequenceLength, bucketCount);
+  return {
+    suiteVersion: 'pilot-1.0.0',
+    seed,
+    challenges: [
+      {
+        id: `integer-pilot-v1:${seed}:${sequenceLength}`,
+        family: 'integer-pilot-v1',
+        variant: 0,
+        replicate: 0,
+        seed,
+        wrapper: 'direct',
+        environmentId: 'preflight/json-array',
+        format: 'json-array',
+        prompt: numericPrompt({
+          sequenceLength,
+          rangeExclusive,
+          format: 'json-array',
+        }),
+        params: {
+          sequenceLength,
+          bucketCount,
+          rangeExclusive,
+          temperature: 1,
+        },
+      },
+    ],
+  };
+}
+
 export function challengeHash(challenge) {
   return createHash('sha256').update(JSON.stringify(challenge)).digest('hex');
 }

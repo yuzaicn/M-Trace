@@ -10,6 +10,19 @@ Provider-specific generation controls are passed with `--generation-options-json
 
 The exact field is provider-specific; the preflight must fail closed when a provider rejects it or silently returns a response with an unreported reasoning mode.
 
+For OpenAI models that do not accept temperature, use `--sampling-mode provider-default` and pass Chat Completions `reasoning_effort` through generation options, for example:
+
+```sh
+--sampling-mode provider-default \
+--generation-options-json '{"reasoning_effort":"none"}'
+```
+
+This variant sends Chat Completions `reasoning_effort` and `max_completion_tokens`, omits both `max_tokens` and `temperature`, and records the contract provenance fields `samplingSource`, `effort`, `requestShape`, and `generationOptions`. It also records complete upstream `usage` (including `completion_tokens_details.reasoning_tokens` when returned) and `systemFingerprint` in JSONL. The older `challenge-temperature` mode remains available for providers/models that accept an explicit temperature. A provider-default record is valid only when the matching bank entry freezes the same effort, sampling source, and request shape.
+
+`--pilot-integers 16` renders one direct JSON-array challenge containing exactly 16 integers. It is the paid preflight gate, not a production fingerprint sample, and replaces the normal 108-call suite for that invocation.
+
+The OpenAI 0.0.1 pilot is additionally gated on an official direct credential and `https://api.openai.com`; keys or endpoints from compatibility proxies, resellers, mirrors, sub2api, or codex-proxy are forbidden. Its command must include `--official-openai-only`, which rejects non-official origins before making a request. Before the paid pilot, list `/v1/models` using the official endpoint and confirm each frozen model is visible. Do not print or persist that model-list request's authorization header.
+
 Keys can only be named through `--key-env`; their values cannot be passed as arguments. JSONL records intentionally omit base URL, authorization headers, and local paths. Raw upstream response bodies are sensitive working data and must be reviewed before sharing. Files are appended with owner-only mode when newly created.
 
 Example against a local mock endpoint:
