@@ -55,7 +55,7 @@ const result = await collect({
   retries: Number(option('--retries', '2')),
   requestsPerMinute: Number(option('--rpm', '60')),
   timeoutMs: Number(option('--timeout-ms', '20000')),
-  samplingMode: option('--sampling-mode', 'challenge-temperature'),
+  samplingMode: option('--sampling-mode', 'provider-default'),
   generationOptions: jsonOption('--generation-options-json'),
   requireOfficialOpenAI: process.argv.includes('--official-openai-only'),
 });

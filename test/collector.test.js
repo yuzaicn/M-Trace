@@ -81,6 +81,7 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
         requestsPerMinute: 0,
         sleep: async () => {},
         generationOptions: { thinking: { type: 'disabled' } },
+        samplingMode: 'challenge-temperature',
       };
       assert.deepEqual(await collect(options), {
         attempted: 1,
@@ -147,6 +148,7 @@ test('collects Anthropic non-stream response', async () => {
         rawPath: join(directory, 'raw.jsonl'),
         normalizedPath: join(directory, 'normalized.jsonl'),
         requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
       });
       assert.equal(result.completed, 1);
       assert.doesNotMatch(
@@ -184,6 +186,7 @@ test('collects Anthropic SSE response', async () => {
         rawPath: join(directory, 'raw.jsonl'),
         normalizedPath,
         requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
       });
       assert.equal(result.completed, 1);
       const normalized = JSON.parse(
@@ -223,6 +226,7 @@ test('collects OpenAI non-stream response', async () => {
         normalizedPath,
         stream: false,
         requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
       });
       assert.equal(result.completed, 1);
       const normalized = JSON.parse(
@@ -234,32 +238,43 @@ test('collects OpenAI non-stream response', async () => {
   );
 });
 
-test('rejects provider-default mode for non-OpenAI protocols before a request', async () => {
+test('Anthropic provider-default mode omits sampling parameters and records its shape', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
-  let requested = false;
-  const result = await collect({
-    baseUrl: 'http://invalid.local',
-    key: 'mock-key',
-    model: 'requested-b',
-    protocol: 'anthropic',
-    challenges: [challenge],
-    rawPath: join(directory, 'raw.jsonl'),
-    normalizedPath: join(directory, 'normalized.jsonl'),
-    requestsPerMinute: 0,
-    retries: 0,
-    samplingMode: 'provider-default',
-    fetchImpl: async () => {
-      requested = true;
-      throw new Error('must not be reached');
+  await withServer(
+    async (request, response) => {
+      let requestBody = '';
+      for await (const chunk of request) requestBody += chunk;
+      const requestJson = JSON.parse(requestBody);
+      assert.equal(requestJson.temperature, undefined);
+      assert.equal(requestJson.top_p, undefined);
+      assert.equal(requestJson.max_tokens, 512);
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'self-b',
+          content: [{ type: 'text', text: '[1,2,3,4]' }],
+        }),
+      );
     },
-  });
-  assert.equal(requested, false);
-  assert.deepEqual(result.failures, [
-    {
-      challengeId: challenge.id,
-      message: 'provider-default sampling requires openai protocol',
+    async (baseUrl) => {
+      const normalizedPath = join(directory, 'normalized.jsonl');
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'requested-b',
+        protocol: 'anthropic',
+        challenges: [challenge],
+        rawPath: join(directory, 'raw.jsonl'),
+        normalizedPath,
+        requestsPerMinute: 0,
+        samplingMode: 'provider-default',
+      });
+      assert.equal(result.completed, 1);
+      const normalized = JSON.parse(await readFile(normalizedPath, 'utf8'));
+      assert.equal(normalized.samplingSource, 'provider-default');
+      assert.equal(normalized.requestShape, 'anthropic-messages');
     },
-  ]);
+  );
 });
 
 test('official OpenAI guard rejects compatibility proxies before a request', async () => {
@@ -307,6 +322,69 @@ test('provider-default mode rejects explicit sampling overrides', async () => {
   assert.match(result.failures[0].message, /forbids temperature/);
 });
 
+test('OpenAI provider-default without reasoning effort records the plain chat shape', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  await withServer(
+    (_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          model: 'plain-chat',
+          choices: [{ message: { content: '[1,2,3,4]' } }],
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const normalizedPath = join(directory, 'normalized.jsonl');
+      const result = await collect({
+        baseUrl,
+        key: 'mock-key',
+        model: 'plain-chat',
+        protocol: 'openai',
+        challenges: [challenge],
+        rawPath: join(directory, 'raw.jsonl'),
+        normalizedPath,
+        stream: false,
+        requestsPerMinute: 0,
+      });
+      assert.equal(result.completed, 1);
+      const normalized = JSON.parse(await readFile(normalizedPath, 'utf8'));
+      assert.equal(normalized.requestShape, 'openai-chat-completions');
+      assert.equal(normalized.effort, null);
+    },
+  );
+});
+
+test('Suite 2 challenges cannot be forced through challenge-temperature mode', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  let requested = false;
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'gpt-5.6-sol',
+    protocol: 'openai',
+    challenges: [
+      {
+        ...challenge,
+        suiteVersion: '2.0.0',
+        samplingSource: 'provider-default',
+        params: { ...challenge.params, temperature: undefined },
+      },
+    ],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 0,
+    samplingMode: 'challenge-temperature',
+    fetchImpl: async () => {
+      requested = true;
+      throw new Error('must not be reached');
+    },
+  });
+  assert.equal(requested, false);
+  assert.match(result.failures[0].message, /requires a finite/);
+});
+
 test('OpenAI provider-default variant omits temperature and records reasoning provenance and usage', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
   const rawPath = join(directory, 'raw.jsonl');
@@ -349,7 +427,6 @@ test('OpenAI provider-default variant omits temperature and records reasoning pr
         normalizedPath,
         stream: false,
         requestsPerMinute: 0,
-        samplingMode: 'provider-default',
         generationOptions: { reasoning_effort: 'none' },
       });
       assert.equal(result.completed, 1);
@@ -362,6 +439,17 @@ test('OpenAI provider-default variant omits temperature and records reasoning pr
         assert.equal(record.effort, 'none');
         assert.equal(record.requestShape, 'openai-reasoning-chat-completions');
       }
+      assert.equal(raw.samplingSource, 'provider-default');
+      assert.equal(raw.effort, 'none');
+      assert.equal(raw.requestShape, 'openai-reasoning-chat-completions');
+      assert.deepEqual(raw.generationOptions, { reasoning_effort: 'none' });
+      assert.deepEqual(raw.usage, {
+        prompt_tokens: 9,
+        completion_tokens: 7,
+        total_tokens: 16,
+        completion_tokens_details: { reasoning_tokens: 3 },
+      });
+      assert.equal(raw.systemFingerprint, 'fp_mock');
       assert.deepEqual(normalized.usage, {
         prompt_tokens: 9,
         completion_tokens: 7,

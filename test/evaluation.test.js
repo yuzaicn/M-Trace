@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { attackCases } from '../src/evaluate/attacks.js';
-import { evaluateDataset } from '../src/evaluate/evaluator.js';
+import { classify, evaluateDataset } from '../src/evaluate/evaluator.js';
 
 function rng(seed = 7) {
   let state = seed;
@@ -24,6 +24,8 @@ function dataset() {
     for (let environment = 0; environment < 3; environment += 1) {
       samples.push({
         provenance: 'synthetic',
+        extractorVersion: '1.0.0',
+        suiteVersion: '2.0.0',
         split: 'in-library',
         modelId,
         modelFamily: family,
@@ -39,6 +41,8 @@ function dataset() {
     for (let environment = 0; environment < 3; environment += 1) {
       samples.push({
         provenance: 'synthetic',
+        extractorVersion: '1.0.0',
+        suiteVersion: '2.0.0',
         split: 'out-of-library',
         modelId: `unknown-${model}`,
         modelFamily: `other-${model % 4}`,
@@ -82,10 +86,12 @@ test('evaluation runs leave-one-environment-out, 20-model open set, and split ro
   const report = evaluateDataset(dataset(), {
     maxDistance: 0.04,
     minMargin: 0.005,
+    minRelativeMargin: 0.01,
     rng: rng(),
   });
   assert.equal(report.closedSet.environments.length, 3);
   assert.equal(report.seed, 73013);
+  assert.equal(report.protocolVersion, '2.0.0');
   assert.equal(report.closedSet.sampleCount, 6);
   assert.equal(report.openSet.distinctModels, 20);
   assert.equal(typeof report.openSet.misattributionRate, 'number');
@@ -99,4 +105,113 @@ test('evaluation runs leave-one-environment-out, 20-model open set, and split ro
     typeof report.robustness.numericRewrite['jitter-sigma-2'].unknownRate,
     'number',
   );
+});
+
+test('classify applies relative margin and emits a family verdict only when generations separate', () => {
+  const base = {
+    provenance: 'synthetic',
+    bucketCount: 32,
+    rangeExclusive: 384,
+    environmentId: 'env-0',
+    extractorVersion: '1.0.0',
+    suiteVersion: '2.0.0',
+  };
+  const training = new Map([
+    [
+      'a-1',
+      [
+        {
+          ...base,
+          modelId: 'a-1',
+          modelFamily: 'gpt-5.5',
+          values: values(1, 0),
+        },
+      ],
+    ],
+    [
+      'a-2',
+      [
+        {
+          ...base,
+          modelId: 'a-2',
+          modelFamily: 'gpt-5.5',
+          values: values(1, 0),
+        },
+      ],
+    ],
+    [
+      'b-1',
+      [
+        {
+          ...base,
+          modelId: 'b-1',
+          modelFamily: 'gpt-6',
+          values: values(15, 0),
+        },
+      ],
+    ],
+  ]);
+  const family = classify({ ...base, values: values(1, 0) }, training, {
+    maxDistance: 1,
+    minMargin: 0.2,
+    minRelativeMargin: 0.5,
+  });
+  assert.equal(family.decision, 'in-library-family');
+  assert.equal(family.family, 'gpt-5.5');
+
+  const relativeRejected = classify(
+    { ...base, values: values(1, 0) },
+    training,
+    { maxDistance: 1, minMargin: 0, minRelativeMargin: 2 },
+  );
+  assert.equal(relativeRejected.decision, 'ambiguous');
+
+  const exact = classify({ ...base, values: values(1, 0) }, training, {
+    maxDistance: 1,
+    minMargin: 0,
+    minRelativeMargin: 0,
+  });
+  assert.equal(exact.decision, 'in-library');
+
+  const outside = classify({ ...base, values: values(30, 2) }, training, {
+    maxDistance: 0,
+    minMargin: 0,
+    minRelativeMargin: 0,
+  });
+  assert.equal(outside.decision, 'unknown');
+  assert.equal(outside.reason, 'out-of-library');
+
+  const insufficient = classify(
+    { ...base, values: values(1, 0), validEvidence: false },
+    training,
+    { maxDistance: 1, minMargin: 0, minRelativeMargin: 0 },
+  );
+  assert.deepEqual(insufficient, {
+    decision: 'unknown',
+    reason: 'insufficient-evidence',
+    candidates: [],
+  });
+});
+
+test('symbol collection-only samples never affect scored evaluation', () => {
+  const source = dataset();
+  const baseline = evaluateDataset(source, {
+    maxDistance: 0.04,
+    minMargin: 0.005,
+    minRelativeMargin: 0.01,
+    rng: rng(),
+  });
+  source.samples.push({
+    ...source.samples[0],
+    challengeFamily: 'symbol-choice-v1',
+    evaluationRole: 'collection-only',
+    values: Array(256).fill(383),
+  });
+  const withSymbol = evaluateDataset(source, {
+    maxDistance: 0.04,
+    minMargin: 0.005,
+    minRelativeMargin: 0.01,
+    rng: rng(),
+  });
+  assert.deepEqual(withSymbol, baseline);
 });

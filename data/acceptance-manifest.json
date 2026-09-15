@@ -2,7 +2,7 @@
   "manifestVersion": "1.1",
   "status": "frozen-before-collection",
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:b40d2b809133c030112fa834ce1516f697ee616ab6f4d9faa4766000d934b266",
+  "contentHash": "sha256:f818ed2f93fadd098dfbeb43837af28f8d667ad4fcf6aa3aa312484d7c689e15",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,
@@ -48,7 +48,7 @@
     {
       "vendor": "OpenAI",
       "modelId": "gpt-5.5",
-      "family": "OpenAI",
+      "family": "gpt-5.5",
       "generation": "5.5",
       "releaseDate": "2026-04-23",
       "idStatus": "rolling-model-id",
@@ -68,7 +68,7 @@
     {
       "vendor": "OpenAI",
       "modelId": "gpt-5.5-pro",
-      "family": "OpenAI",
+      "family": "gpt-5.5",
       "generation": "5.5 Pro",
       "releaseDate": "2026-04-23",
       "idStatus": "rolling-model-id",
@@ -89,7 +89,7 @@
     {
       "vendor": "OpenAI",
       "modelId": "gpt-5.6-sol",
-      "family": "OpenAI",
+      "family": "gpt-5.6",
       "generation": "5.6 Sol",
       "releaseDate": "2026-07-09",
       "idStatus": "stable-model-id",
@@ -111,7 +111,7 @@
     {
       "vendor": "OpenAI",
       "modelId": "gpt-5.6-terra",
-      "family": "OpenAI",
+      "family": "gpt-5.6",
       "generation": "5.6 Terra",
       "releaseDate": "2026-07-09",
       "idStatus": "stable-model-id",
@@ -131,7 +131,7 @@
     {
       "vendor": "OpenAI",
       "modelId": "gpt-5.6-luna",
-      "family": "OpenAI",
+      "family": "gpt-5.6",
       "generation": "5.6 Luna",
       "releaseDate": "2026-07-09",
       "idStatus": "stable-model-id",
@@ -151,7 +151,7 @@
     {
       "vendor": "OpenAI",
       "modelId": "gpt-6-astra",
-      "family": "OpenAI",
+      "family": "gpt-6",
       "generation": "6 Astra",
       "releaseDate": "2026-09-04",
       "idStatus": "stable-model-id",

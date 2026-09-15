@@ -5,7 +5,7 @@
 ## 统一口径与硬门槛
 
 - 正式采集仍采用 3 families × 12 environments × 3 replicates = 108 calls/identity/round，环境网格不变；做建库与第 14 天漂移复测两轮。
-- OpenAI-only 候选不发送 `temperature`，使用厂商默认采样；发送 `max_completion_tokens` 而非 `max_tokens`，并冻结 `reasoning_effort`。默认采样漂移是明确失效条件，必须以漂移复测与新 `bankVersion` 处理，不能覆盖旧指纹。
+- OpenAI-only 候选不发送 `temperature`/`top_p`，使用厂商默认采样；发送 `max_completion_tokens` 而非 `max_tokens`，并冻结 `reasoning_effort`。默认采样漂移是明确失效条件，必须以漂移复测与新 `bankVersion` 处理，不能覆盖旧指纹。
 - 全量采集前必须先完成 6 型号各一次、恰好 16 整数的最小试点。六项全部通过才放全量；任一失败即停止。特别是 `gpt-5.5-pro` 或 `gpt-6-astra` 失败会让库少于 6 个，不得自行补型或放宽窗口。
 - 只允许 `https://api.openai.com` 官方直连与 platform.openai.com 官方 key。共享网关、镜像、转售 key、sub2api、codex-proxy 一律禁止。拿到预算和凭据后先 `GET /v1/models` 核对可见模型，再做试点。
 - 试点必须回读并保存完整 `usage`，包括可用时的 `completion_tokens_details.reasoning_tokens`，据此把成本从估算换为实测；所有 `probeAt` 当前为空、`probeResult` 为 `pending-budget`。
@@ -64,7 +64,7 @@ OpenAI 官方模型页已确认：`gpt-5.6` alias 指向 `gpt-5.6-sol`；`gpt-5.
 
 ## 协议与可信度限制
 
-OpenAI-only 要求将 suite 全族采样语义改为 provider default，并把“family”对外语义改为 OpenAI 世代（5.5 / 5.6 / 6）。这两项属于 GUCH-363 契约收口：在后端组长确认 suiteVersion 与字段语义前，不修改冻结协议、不做真实采集。
+GUCH-363 已冻结 Suite 2.0：全族采样语义为 provider default，`modelFamily` 对外语义为 OpenAI 世代（`gpt-5.5` / `gpt-5.6` / `gpt-6`）。正式采集仍必须等待本仓库对齐实现复核和六型号试点全部通过。
 
 阶段 1 的数值抖动、封装鲁棒性和最低库规模结论来自离线分析语料，不是本清单的在线实测。跨时间稳定性、OpenAI 默认采样漂移、symbol family 效用、`gpt-5.5-pro`/`gpt-6-astra` 可解析性及真实 reasoning 成本均未验证，不得表述为已证实能力。
 

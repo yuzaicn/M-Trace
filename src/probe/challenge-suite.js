@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 const BUCKET_DIVISORS = [8, 16, 32, 64, 128];
 const FORMATS = ['json-array', 'csv-line', 'plain-text'];
 const WRAPPERS = ['direct', 'brief', 'schema', 'delimited'];
+const SUITE_VERSION = '2.0.0';
 
 function seeded(seed) {
   let state = seed >>> 0;
@@ -85,6 +86,8 @@ export function renderChallengeSuite({
     for (let replicate = 0; replicate < replicates; replicate += 1) {
       const challengeSeed = seed + variant * replicates + replicate;
       const base = {
+        suiteVersion: SUITE_VERSION,
+        samplingSource: 'provider-default',
         variant,
         replicate,
         seed: challengeSeed,
@@ -100,7 +103,8 @@ export function renderChallengeSuite({
           numericPrompt({ sequenceLength, rangeExclusive, format }),
           wrapper,
         ),
-        params: { sequenceLength, bucketCount, rangeExclusive, temperature: 1 },
+        evaluationRole: 'scored',
+        params: { sequenceLength, bucketCount, rangeExclusive },
       });
       challenges.push({
         ...base,
@@ -115,8 +119,8 @@ export function renderChallengeSuite({
           sequenceLength: 192,
           bucketCount,
           rangeExclusive,
-          temperature: 1,
         },
+        evaluationRole: 'scored',
       });
       challenges.push({
         ...base,
@@ -127,11 +131,17 @@ export function renderChallengeSuite({
           choicePrompt(challengeSeed, variant, format),
           wrapper,
         ),
-        params: { sequenceLength: 96, bucketCount: 32, temperature: 0.7 },
+        evaluationRole: 'collection-only',
+        params: { sequenceLength: 96, bucketCount: 32 },
       });
     }
   }
-  return { suiteVersion: '1.0.0', seed, challenges };
+  return {
+    suiteVersion: SUITE_VERSION,
+    samplingSource: 'provider-default',
+    seed,
+    challenges,
+  };
 }
 
 export function renderIntegerPilot({ seed = 73013, sequenceLength = 16 } = {}) {
@@ -145,6 +155,9 @@ export function renderIntegerPilot({ seed = 73013, sequenceLength = 16 } = {}) {
     seed,
     challenges: [
       {
+        suiteVersion: 'pilot-1.0.0',
+        samplingSource: 'provider-default',
+        evaluationRole: 'collection-only',
         id: `integer-pilot-v1:${seed}:${sequenceLength}`,
         family: 'integer-pilot-v1',
         variant: 0,
@@ -162,7 +175,6 @@ export function renderIntegerPilot({ seed = 73013, sequenceLength = 16 } = {}) {
           sequenceLength,
           bucketCount,
           rangeExclusive,
-          temperature: 1,
         },
       },
     ],

@@ -27,24 +27,42 @@ function requestFor(
   challenge,
   stream,
   generationOptions = {},
-  samplingMode = 'challenge-temperature',
+  samplingMode = 'provider-default',
 ) {
   if (!['challenge-temperature', 'provider-default'].includes(samplingMode)) {
     throw new Error('unsupported sampling mode');
   }
+  if (
+    samplingMode === 'challenge-temperature' &&
+    !Number.isFinite(challenge.params.temperature)
+  ) {
+    throw new Error(
+      'challenge-temperature sampling requires a finite challenge temperature',
+    );
+  }
   const maxOutputTokens = Math.max(512, challenge.params.sequenceLength * 4);
   if (protocol === 'anthropic') {
-    if (samplingMode === 'provider-default') {
-      throw new Error('provider-default sampling requires openai protocol');
+    if (
+      samplingMode === 'provider-default' &&
+      ['temperature', 'top_p'].some((field) =>
+        Object.hasOwn(generationOptions, field),
+      )
+    ) {
+      throw new Error(
+        'provider-default sampling forbids temperature and top_p generation options',
+      );
     }
-    return {
+    const request = {
       ...generationOptions,
       model,
       max_tokens: maxOutputTokens,
-      temperature: challenge.params.temperature,
       stream,
       messages: [{ role: 'user', content: challenge.prompt }],
     };
+    if (samplingMode === 'challenge-temperature') {
+      request.temperature = challenge.params.temperature;
+    }
+    return request;
   }
   if (
     samplingMode === 'provider-default' &&
@@ -75,9 +93,9 @@ function requestFor(
   return request;
 }
 
-function requestShapeFor(protocol, samplingMode) {
+function requestShapeFor(protocol, generationOptions) {
   if (protocol === 'anthropic') return 'anthropic-messages';
-  return samplingMode === 'provider-default'
+  return Object.hasOwn(generationOptions, 'reasoning_effort')
     ? 'openai-reasoning-chat-completions'
     : 'openai-chat-completions';
 }
@@ -240,7 +258,7 @@ export async function collect({
   requestsPerMinute = 60,
   timeoutMs = 20_000,
   generationOptions = {},
-  samplingMode = 'challenge-temperature',
+  samplingMode = 'provider-default',
   requireOfficialOpenAI = false,
   fetchImpl = globalThis.fetch,
   now = Date.now,
@@ -340,11 +358,13 @@ export async function collect({
             ? 'provider-default'
             : 'challenge-parameter';
         const effort = generationOptions.reasoning_effort ?? null;
-        const requestShape = requestShapeFor(protocol, samplingMode);
+        const requestShape = requestShapeFor(protocol, generationOptions);
         const metadata = {
           requestId: response.headers.get('x-request-id') ?? null,
           challengeId: challenge.id,
           challengeHash: challengeHash(challenge),
+          suiteVersion: challenge.suiteVersion ?? null,
+          evaluationRole: challenge.evaluationRole ?? 'scored',
           protocol,
           requestedModel: model,
           receivedAt,
@@ -369,6 +389,8 @@ export async function collect({
           recordType: 'raw-probe-v1',
           request: {
             challengeId: challenge.id,
+            suiteVersion: challenge.suiteVersion ?? null,
+            evaluationRole: challenge.evaluationRole ?? 'scored',
             protocol,
             requestedModel: model,
             attempt,
@@ -378,6 +400,12 @@ export async function collect({
             generationOptions,
           },
           response: { ...metadata, text: safeText, body: safeBody },
+          samplingSource,
+          effort,
+          requestShape,
+          generationOptions,
+          usage: extracted.usage ?? null,
+          systemFingerprint: extracted.systemFingerprint ?? null,
         });
         const values = parseValues(extracted.text);
         const tokens =

@@ -21,11 +21,26 @@ test('challenge suite is deterministic, adaptive, and contains three original fa
     sequenceLength: 384,
   });
   assert.deepEqual(first, second);
+  assert.equal(first.suiteVersion, '2.0.0');
+  assert.equal(first.samplingSource, 'provider-default');
+  assert.ok(
+    first.challenges.every(
+      (item) =>
+        item.suiteVersion === '2.0.0' &&
+        item.samplingSource === 'provider-default' &&
+        !Object.hasOwn(item.params, 'temperature'),
+    ),
+  );
   assert.deepEqual(
     new Set(first.challenges.map((item) => item.family)),
     new Set(['adaptive-numeric-v1', 'format-pivot-v1', 'symbol-choice-v1']),
   );
   assert.equal(first.challenges.length, 9);
+  assert.equal(
+    first.challenges.find((item) => item.family === 'symbol-choice-v1')
+      .evaluationRole,
+    'collection-only',
+  );
   const larger = renderChallengeSuite({
     seed: 41,
     variants: 3,
@@ -45,6 +60,9 @@ test('integer pilot renders exactly one minimal parseable challenge', () => {
   assert.equal(pilot.challenges.length, 1);
   assert.equal(pilot.challenges[0].family, 'integer-pilot-v1');
   assert.equal(pilot.challenges[0].params.sequenceLength, 16);
+  assert.equal(pilot.challenges[0].samplingSource, 'provider-default');
+  assert.equal(pilot.challenges[0].evaluationRole, 'collection-only');
+  assert.equal(Object.hasOwn(pilot.challenges[0].params, 'temperature'), false);
   assert.match(pilot.challenges[0].prompt, /exactly 16/);
 });
 

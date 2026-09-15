@@ -17,7 +17,7 @@ For OpenAI models that do not accept temperature, use `--sampling-mode provider-
 --generation-options-json '{"reasoning_effort":"none"}'
 ```
 
-This variant sends Chat Completions `reasoning_effort` and `max_completion_tokens`, omits both `max_tokens` and `temperature`, and records the contract provenance fields `samplingSource`, `effort`, `requestShape`, and `generationOptions`. It also records complete upstream `usage` (including `completion_tokens_details.reasoning_tokens` when returned) and `systemFingerprint` in JSONL. The older `challenge-temperature` mode remains available for providers/models that accept an explicit temperature. A provider-default record is valid only when the matching bank entry freezes the same effort, sampling source, and request shape.
+For OpenAI, this variant sends Chat Completions `reasoning_effort` and `max_completion_tokens`, and omits `max_tokens`, `temperature`, and `top_p`. Anthropic Messages retains its required output-budget field `max_tokens` but likewise omits both sampling parameters. The collector records `samplingSource`, `effort`, the actual `requestShape`, and `generationOptions`, plus complete upstream `usage` (including `completion_tokens_details.reasoning_tokens` when returned) and `systemFingerprint` in JSONL. Provider-default is the CLI default and the only valid mode for Suite 2.0 bank/acceptance collection. The older `challenge-temperature` mode remains available only for local mock and regression fixtures. A provider-default record is valid only when the matching bank entry freezes the same effort, sampling source, and request shape.
 
 `--pilot-integers 16` renders one direct JSON-array challenge containing exactly 16 integers. It is the paid preflight gate, not a production fingerprint sample, and replaces the normal 108-call suite for that invocation.
 
@@ -34,4 +34,4 @@ MOCK_TOKEN=not-a-real-key m-trace-collect \
   --raw raw.jsonl --normalized normalized.jsonl --rpm 600
 ```
 
-This command shape does not authorize real API calls. No real collection was performed for protocol 1.0 because budget and model coverage were not approved.
+This command shape does not authorize real API calls. No real collection has been performed because the pilot budget and model coverage are not yet approved.

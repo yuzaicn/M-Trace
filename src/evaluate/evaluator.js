@@ -19,21 +19,106 @@ function centroid(samples) {
   );
 }
 
-function classify(sample, training, thresholds) {
+function scoredSamples(samples) {
+  return samples.filter(
+    (sample) =>
+      sample.evaluationRole !== 'collection-only' &&
+      sample.challengeFamily !== 'symbol-choice-v1',
+  );
+}
+
+function relativeMargin(best, second) {
+  if (!second) return 0;
+  const margin = second.distance - best.distance;
+  return second.distance === 0 ? 0 : margin / second.distance;
+}
+
+function separated(best, second, { minMargin, minRelativeMargin }) {
+  if (!second) return false;
+  return (
+    second.distance - best.distance >= minMargin &&
+    relativeMargin(best, second) >= minRelativeMargin
+  );
+}
+
+export function classify(sample, training, thresholds) {
+  if (
+    sample.validEvidence === false ||
+    !Array.isArray(sample.values) ||
+    sample.values.length < (thresholds.minimumEvidenceValues ?? 1) ||
+    typeof sample.extractorVersion !== 'string' ||
+    typeof sample.suiteVersion !== 'string'
+  ) {
+    return {
+      decision: 'unknown',
+      reason: 'insufficient-evidence',
+      candidates: [],
+    };
+  }
+  const expectedExtractorVersion = sample.extractorVersion;
+  const expectedSuiteVersion = sample.suiteVersion;
+  const sampleFloor = thresholds.minimumSamplesPerCandidate ?? 1;
   const query = numericFingerprint(sample.values, sample);
   const candidates = [...training.entries()]
-    .map(([modelId, samples]) => ({
-      modelId,
-      family: samples[0].modelFamily,
-      distance: fingerprintDistance(query, centroid(samples)),
-    }))
+    .map(([modelId, samples]) => {
+      const eligible = samples.filter(
+        (item) =>
+          item.validEvidence !== false &&
+          item.extractorVersion === expectedExtractorVersion &&
+          item.suiteVersion === expectedSuiteVersion,
+      );
+      if (eligible.length < sampleFloor) return null;
+      return {
+        modelId,
+        family: eligible[0].modelFamily,
+        distance: fingerprintDistance(query, centroid(eligible)),
+      };
+    })
+    .filter(Boolean)
     .sort((a, b) => a.distance - b.distance);
   const best = candidates[0];
   const second = candidates[1];
-  if (!best || best.distance > thresholds.maxDistance)
-    return { decision: 'unknown', candidates };
-  if (second && second.distance - best.distance < thresholds.minMargin) {
-    return { decision: 'ambiguous', candidates };
+  if (!best) {
+    return {
+      decision: 'unknown',
+      reason: 'insufficient-evidence',
+      candidates,
+    };
+  }
+  if (best.distance > thresholds.maxDistance) {
+    return { decision: 'unknown', reason: 'out-of-library', candidates };
+  }
+  if (!separated(best, second, thresholds)) {
+    const familyCandidates = [...new Set(candidates.map((item) => item.family))]
+      .map((family) => ({
+        family,
+        distance: Math.min(
+          ...candidates
+            .filter((item) => item.family === family)
+            .map((item) => item.distance),
+        ),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+    const familyBest = familyCandidates[0];
+    const familySecond = familyCandidates[1];
+    if (
+      familyBest &&
+      familyBest.distance <= thresholds.maxDistance &&
+      separated(familyBest, familySecond, thresholds)
+    ) {
+      return {
+        decision: 'in-library-family',
+        family: familyBest.family,
+        candidates,
+        familyCandidates,
+      };
+    }
+    return {
+      decision: 'ambiguous',
+      reason: 'candidates-not-separable',
+      candidates,
+      familyCandidates,
+    };
   }
   return {
     decision: 'in-library',
@@ -54,6 +139,7 @@ function group(samples) {
 }
 
 export function leaveOneEnvironmentOut(samples, thresholds) {
+  samples = scoredSamples(samples);
   const environments = [
     ...new Set(samples.map((sample) => sample.environmentId)),
   ];
@@ -77,11 +163,15 @@ export function leaveOneEnvironmentOut(samples, thresholds) {
   const familyCorrect = predictions.filter(
     (item) => item.prediction.family === item.sample.modelFamily,
   ).length;
+  const abstained = predictions.filter((item) =>
+    ['unknown', 'ambiguous'].includes(item.prediction.decision),
+  ).length;
   return {
     environments,
     sampleCount: predictions.length,
     top1Accuracy: correct / predictions.length,
     familyAccuracy: familyCorrect / predictions.length,
+    abstentionRate: abstained / predictions.length,
     confusionMatrix: confusionMatrix(predictions),
     predictions,
   };
@@ -99,13 +189,17 @@ function confusionMatrix(predictions) {
 }
 
 export function evaluateOutOfLibrary(inLibrary, outOfLibrary, thresholds) {
+  inLibrary = scoredSamples(inLibrary);
+  outOfLibrary = scoredSamples(outOfLibrary);
   const training = group(inLibrary);
   const predictions = outOfLibrary.map((sample) => ({
     sample,
     prediction: classify(sample, training, thresholds),
   }));
   const misattributed = predictions.filter(
-    (item) => item.prediction.decision === 'in-library',
+    (item) =>
+      item.prediction.decision === 'in-library' ||
+      item.prediction.decision === 'in-library-family',
   ).length;
   const byModel = new Map();
   for (const item of predictions) {
@@ -115,7 +209,10 @@ export function evaluateOutOfLibrary(inLibrary, outOfLibrary, thresholds) {
       unknown: 0,
     };
     cell.total += 1;
-    cell.misattributed += Number(item.prediction.decision === 'in-library');
+    cell.misattributed += Number(
+      item.prediction.decision === 'in-library' ||
+        item.prediction.decision === 'in-library-family',
+    );
     cell.unknown += Number(item.prediction.decision === 'unknown');
     byModel.set(item.sample.modelId, cell);
   }
@@ -180,6 +277,7 @@ export function evaluateOutOfLibrary(inLibrary, outOfLibrary, thresholds) {
 }
 
 export function evaluateAttacks(samples, thresholds, rng = Math.random) {
+  samples = scoredSamples(samples);
   const rows = [];
   for (const sample of samples) {
     const training = group(
@@ -271,24 +369,33 @@ export function evaluateAttacks(samples, thresholds, rng = Math.random) {
 
 export function evaluateDataset(
   dataset,
-  { maxDistance, minMargin, seed = 73013, rng },
+  { maxDistance, minMargin, minRelativeMargin, seed = 73013, rng },
 ) {
-  if (!Number.isFinite(maxDistance) || !Number.isFinite(minMargin)) {
-    throw new TypeError('calibrated maxDistance and minMargin are required');
+  if (
+    !Number.isFinite(maxDistance) ||
+    !Number.isFinite(minMargin) ||
+    !Number.isFinite(minRelativeMargin)
+  ) {
+    throw new TypeError(
+      'calibrated maxDistance, minMargin, and minRelativeMargin are required',
+    );
+  }
+  if (maxDistance < 0 || minMargin < 0 || minRelativeMargin < 0) {
+    throw new TypeError('calibrated thresholds must be non-negative');
   }
   if (!dataset || !Array.isArray(dataset.samples)) {
     throw new TypeError('dataset.samples must be an array');
   }
-  const thresholds = { maxDistance, minMargin };
+  const thresholds = { maxDistance, minMargin, minRelativeMargin };
   const random = rng ?? seededRandom(seed);
-  const inLibrary = dataset.samples.filter(
-    (sample) => sample.split === 'in-library',
+  const inLibrary = scoredSamples(
+    dataset.samples.filter((sample) => sample.split === 'in-library'),
   );
-  const outOfLibrary = dataset.samples.filter(
-    (sample) => sample.split === 'out-of-library',
+  const outOfLibrary = scoredSamples(
+    dataset.samples.filter((sample) => sample.split === 'out-of-library'),
   );
   return {
-    protocolVersion: '1.0.0',
+    protocolVersion: '2.0.0',
     seed,
     thresholds,
     closedSet: leaveOneEnvironmentOut(inLibrary, thresholds),
