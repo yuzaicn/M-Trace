@@ -14,19 +14,21 @@
 
 下表金额按每模型约 3,000 输入 + 27,000 输出 token 的单重复单元（36 calls）估算，仅用于型号间比较；正式一轮为 3 个重复（108 calls），token 与基础金额均为下表的 3 倍。reasoning token 与重试上浮尚未实测。
 
-| 官方 `model` 字段   | 发布       | 归因世代         | 输入/输出 USD/MTok | 最低 effort | 36-call 单重复单元 CNY | ID/试点状态                                         |
-| ------------------- | ---------- | ---------------- | -----------------: | ----------- | ---------------------: | --------------------------------------------------- |
-| `gpt-5.5`           | 2026-04-23 | OpenAI 5.5       |             5 / 30 | `none`      |                  ¥5.90 | rolling model ID；待试点                            |
-| `gpt-5.5-pro`       | 2026-04-23 | OpenAI 5.5 Pro   |           30 / 180 | `medium`    |                 ¥35.39 | rolling model ID；高成本/高风险；待试点             |
-| `gpt-5.6-sol`       | 2026-07-09 | OpenAI 5.6 Sol   |             4 / 20 | `none`      |                  ¥3.95 | stable model ID；待试点                             |
-| `gpt-5.6-terra`     | 2026-07-09 | OpenAI 5.6 Terra |             2 / 12 | `none`      |                  ¥2.36 | stable model ID；待试点                             |
-| `gpt-5.6-luna`      | 2026-07-09 | OpenAI 5.6 Luna  |          0.2 / 1.2 | `none`      |                  ¥0.24 | stable model ID；待试点                             |
-| `gpt-6-astra`       | 2026-09-04 | OpenAI 6 Astra   |            10 / 50 | `low`       |                  ¥9.87 | stable model ID；最低 effort 仍会 reasoning；待试点 |
-| **合计/单重复单元** |            |                  |                    |             |     **¥57.71（≈¥58）** |                                                     |
+| 官方 `model` 字段        | 发布       | 归因世代         | 输入/输出 USD/MTok | 最低 effort | 36-call 单重复单元 CNY | ID/试点状态                                     |
+| ------------------------ | ---------- | ---------------- | -----------------: | ----------- | ---------------------: | ----------------------------------------------- |
+| `gpt-5.5-2026-04-23`     | 2026-04-23 | OpenAI 5.5       |             5 / 30 | `none`      |                  ¥5.90 | dated snapshot；待试点                          |
+| `gpt-5.5-pro-2026-04-23` | 2026-04-23 | OpenAI 5.5 Pro   |           30 / 180 | `medium`    |                 ¥35.39 | dated snapshot；试点 HTTP 404，已停             |
+| `gpt-5.6-sol`            | 2026-07-09 | OpenAI 5.6 Sol   |             4 / 20 | `none`      |                  ¥3.95 | dateless ID；待试点                             |
+| `gpt-5.6-terra`          | 2026-07-09 | OpenAI 5.6 Terra |             2 / 12 | `none`      |                  ¥2.36 | dateless ID；待试点                             |
+| `gpt-5.6-luna`           | 2026-07-09 | OpenAI 5.6 Luna  |          0.2 / 1.2 | `none`      |                  ¥0.24 | dateless ID；待试点                             |
+| `gpt-6-astra`            | 2026-09-04 | OpenAI 6 Astra   |            10 / 50 | `low`       |                  ¥9.87 | dateless ID；最低 effort 仍会 reasoning；待试点 |
+| **合计/单重复单元**      |            |                  |                    |             |     **¥57.71（≈¥58）** |                                                 |
 
-`gpt-5.6` 是 `gpt-5.6-sol` 的官方 alias，不是第七个库内身份；探活时可对照验证路由，但不得同时入库。`gpt-realtime-2.1` 因 audio 模态、`gpt-image-2` 因图像用途排除。
+`gpt-5.6` 不是第七个库内身份；它在 2026-09-15 的官方模型列表核对中不可见，取消额外别名试打且不得同时入库。`gpt-realtime-2.1` 因 audio 模态、`gpt-image-2` 因图像用途排除。
 
-OpenAI 官方模型页已确认：`gpt-5.6` alias 指向 `gpt-5.6-sol`；`gpt-5.5-pro` 最低 effort 为 `medium` 且不支持 streaming；`gpt-6-astra` 最低 effort 为 `low`。因此 `gpt-5.5-pro` 的试点必须使用非流式请求，其余每个候选也以官方 `/v1/models` 可见性和一次真实响应为最终证据。
+2026-09-15 使用官方直连 key 查询 `/v1/models` 后确认：5.5 与 5.5 Pro 的日期快照可见，因此入库与试点均固定到快照；Sol/Terra/Luna/Astra 没有可见快照，按 dateless ID 记录。`gpt-5.5-pro` 的试点必须使用非流式请求；全部候选仍以一次真实响应为最终证据。
+
+2026-09-15 试点首项 `gpt-5.5-pro-2026-04-23` 使用官方直连 Chat Completions、非流式、provider-default、`reasoning_effort=medium`、`retries=0`，返回 HTTP 404，未产生响应 JSONL 或 usage。按任一失败即停门禁，其余五项未调用；不得改用 rolling ID、改参数或自行补型，等待 owner 裁决。
 
 ## 20 个库外开放集身份（6/6/6/2）
 

@@ -42,27 +42,19 @@ function requestFor(
   }
   const maxOutputTokens = Math.max(512, challenge.params.sequenceLength * 4);
   if (protocol === 'anthropic') {
-    if (
-      samplingMode === 'provider-default' &&
-      ['temperature', 'top_p'].some((field) =>
-        Object.hasOwn(generationOptions, field),
-      )
-    ) {
+    if (samplingMode === 'provider-default') {
       throw new Error(
-        'provider-default sampling forbids temperature and top_p generation options',
+        'provider-default sampling for anthropic-messages is deferred to the 0.0.2 contract re-freeze',
       );
     }
-    const request = {
+    return {
       ...generationOptions,
       model,
       max_tokens: maxOutputTokens,
       stream,
+      temperature: challenge.params.temperature,
       messages: [{ role: 'user', content: challenge.prompt }],
     };
-    if (samplingMode === 'challenge-temperature') {
-      request.temperature = challenge.params.temperature;
-    }
-    return request;
   }
   if (
     samplingMode === 'provider-default' &&

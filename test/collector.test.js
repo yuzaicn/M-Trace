@@ -238,43 +238,27 @@ test('collects OpenAI non-stream response', async () => {
   );
 });
 
-test('Anthropic provider-default mode omits sampling parameters and records its shape', async () => {
+test('Anthropic provider-default mode fails closed before making a request', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
-  await withServer(
-    async (request, response) => {
-      let requestBody = '';
-      for await (const chunk of request) requestBody += chunk;
-      const requestJson = JSON.parse(requestBody);
-      assert.equal(requestJson.temperature, undefined);
-      assert.equal(requestJson.top_p, undefined);
-      assert.equal(requestJson.max_tokens, 512);
-      response.writeHead(200, { 'content-type': 'application/json' });
-      response.end(
-        JSON.stringify({
-          model: 'self-b',
-          content: [{ type: 'text', text: '[1,2,3,4]' }],
-        }),
-      );
+  let requested = false;
+  const result = await collect({
+    baseUrl: 'http://invalid.local',
+    key: 'mock-key',
+    model: 'requested-b',
+    protocol: 'anthropic',
+    challenges: [challenge],
+    rawPath: join(directory, 'raw.jsonl'),
+    normalizedPath: join(directory, 'normalized.jsonl'),
+    requestsPerMinute: 0,
+    retries: 0,
+    samplingMode: 'provider-default',
+    fetchImpl: async () => {
+      requested = true;
+      throw new Error('must not be reached');
     },
-    async (baseUrl) => {
-      const normalizedPath = join(directory, 'normalized.jsonl');
-      const result = await collect({
-        baseUrl,
-        key: 'mock-key',
-        model: 'requested-b',
-        protocol: 'anthropic',
-        challenges: [challenge],
-        rawPath: join(directory, 'raw.jsonl'),
-        normalizedPath,
-        requestsPerMinute: 0,
-        samplingMode: 'provider-default',
-      });
-      assert.equal(result.completed, 1);
-      const normalized = JSON.parse(await readFile(normalizedPath, 'utf8'));
-      assert.equal(normalized.samplingSource, 'provider-default');
-      assert.equal(normalized.requestShape, 'anthropic-messages');
-    },
-  );
+  });
+  assert.equal(requested, false);
+  assert.match(result.failures[0].message, /deferred to the 0\.0\.2/);
 });
 
 test('official OpenAI guard rejects compatibility proxies before a request', async () => {

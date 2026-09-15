@@ -17,8 +17,8 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
   assert.deepEqual(
     manifest.libraryModels.map(({ modelId, family }) => [modelId, family]),
     [
-      ['gpt-5.5', 'gpt-5.5'],
-      ['gpt-5.5-pro', 'gpt-5.5'],
+      ['gpt-5.5-2026-04-23', 'gpt-5.5'],
+      ['gpt-5.5-pro-2026-04-23', 'gpt-5.5'],
       ['gpt-5.6-sol', 'gpt-5.6'],
       ['gpt-5.6-terra', 'gpt-5.6'],
       ['gpt-5.6-luna', 'gpt-5.6'],
@@ -60,5 +60,20 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
       (item) =>
         item.probeAt === null && item.probeResult.startsWith('pending-'),
     ),
+  );
+  const libraryProbeStates = Object.fromEntries(
+    manifest.libraryModels.map(({ modelId, probeResult }) => [
+      modelId,
+      probeResult,
+    ]),
+  );
+  assert.equal(libraryProbeStates['gpt-5.5-pro-2026-04-23'], 'failed-http-404');
+  assert.ok(
+    manifest.libraryModels
+      .filter(({ modelId }) => modelId !== 'gpt-5.5-pro-2026-04-23')
+      .every(
+        ({ probeAt, probeResult }) =>
+          probeAt === null && probeResult.startsWith('pending-'),
+      ),
   );
 });

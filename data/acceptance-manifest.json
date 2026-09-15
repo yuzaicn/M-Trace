@@ -2,7 +2,7 @@
   "manifestVersion": "1.1",
   "status": "frozen-before-collection",
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:f818ed2f93fadd098dfbeb43837af28f8d667ad4fcf6aa3aa312484d7c689e15",
+  "contentHash": "sha256:e29cb14001689f46aad50e5f25d9c1d02ea3adbafbf1db914e6a437156878960",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,
@@ -26,7 +26,7 @@
     ],
     "probeCommand": "m-trace-collect --protocol openai --base-url https://api.openai.com --official-openai-only --model ... --key-env ... --pilot-integers 16 --sampling-mode provider-default --generation-options-json '{\"reasoning_effort\":\"...\"}'",
     "gpt55ProCommandSuffix": "--no-stream",
-    "probeCostMode": "pending-owner-budget",
+    "probeCostMode": "owner-approved-pilot-only",
     "probeMustUseFirstParty": true,
     "preflightModelsMustPass": 6,
     "preflightOutput": "exactly-16-integers",
@@ -47,11 +47,12 @@
   "libraryModels": [
     {
       "vendor": "OpenAI",
-      "modelId": "gpt-5.5",
+      "modelId": "gpt-5.5-2026-04-23",
       "family": "gpt-5.5",
       "generation": "5.5",
       "releaseDate": "2026-04-23",
-      "idStatus": "rolling-model-id",
+      "idStatus": "dated-snapshot-id",
+      "aliases": ["gpt-5.5"],
       "inputUsdPerMTok": 5,
       "outputUsdPerMTok": 30,
       "reasoningEffort": "none",
@@ -63,15 +64,16 @@
       "source": "official-api",
       "baseUrl": "https://api.openai.com",
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "pending-gate-stop"
     },
     {
       "vendor": "OpenAI",
-      "modelId": "gpt-5.5-pro",
+      "modelId": "gpt-5.5-pro-2026-04-23",
       "family": "gpt-5.5",
       "generation": "5.5 Pro",
       "releaseDate": "2026-04-23",
-      "idStatus": "rolling-model-id",
+      "idStatus": "dated-snapshot-id",
+      "aliases": ["gpt-5.5-pro"],
       "inputUsdPerMTok": 30,
       "outputUsdPerMTok": 180,
       "reasoningEffort": "medium",
@@ -82,9 +84,9 @@
       "stream": false,
       "source": "official-api",
       "baseUrl": "https://api.openai.com",
-      "probeAt": null,
-      "probeResult": "pending-budget",
-      "riskNote": "minimum reasoning effort cannot be disabled; highest cost; pilot failure stops collection"
+      "probeAt": "2026-09-15T04:59:10Z",
+      "probeResult": "failed-http-404",
+      "riskNote": "official direct POST /v1/chat/completions returned HTTP 404 for the dated snapshot with non-streaming, provider-default sampling, and medium effort; pilot stopped without retry or substitution"
     },
     {
       "vendor": "OpenAI",
@@ -92,7 +94,7 @@
       "family": "gpt-5.6",
       "generation": "5.6 Sol",
       "releaseDate": "2026-07-09",
-      "idStatus": "stable-model-id",
+      "idStatus": "dateless-model-id",
       "aliases": ["gpt-5.6"],
       "inputUsdPerMTok": 4,
       "outputUsdPerMTok": 20,
@@ -105,8 +107,8 @@
       "source": "official-api",
       "baseUrl": "https://api.openai.com",
       "probeAt": null,
-      "probeResult": "pending-budget",
-      "aliasRule": "gpt-5.6 may be probed for equivalence but must never become a second bank entry"
+      "probeResult": "pending-gate-stop",
+      "aliasRule": "gpt-5.6 was absent from the verified model list; it is excluded from the pilot and must never become a second bank entry"
     },
     {
       "vendor": "OpenAI",
@@ -114,7 +116,7 @@
       "family": "gpt-5.6",
       "generation": "5.6 Terra",
       "releaseDate": "2026-07-09",
-      "idStatus": "stable-model-id",
+      "idStatus": "dateless-model-id",
       "inputUsdPerMTok": 2,
       "outputUsdPerMTok": 12,
       "reasoningEffort": "none",
@@ -126,7 +128,7 @@
       "source": "official-api",
       "baseUrl": "https://api.openai.com",
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "pending-gate-stop"
     },
     {
       "vendor": "OpenAI",
@@ -134,7 +136,7 @@
       "family": "gpt-5.6",
       "generation": "5.6 Luna",
       "releaseDate": "2026-07-09",
-      "idStatus": "stable-model-id",
+      "idStatus": "dateless-model-id",
       "inputUsdPerMTok": 0.2,
       "outputUsdPerMTok": 1.2,
       "reasoningEffort": "none",
@@ -146,7 +148,7 @@
       "source": "official-api",
       "baseUrl": "https://api.openai.com",
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "pending-gate-stop"
     },
     {
       "vendor": "OpenAI",
@@ -154,7 +156,7 @@
       "family": "gpt-6",
       "generation": "6 Astra",
       "releaseDate": "2026-09-04",
-      "idStatus": "stable-model-id",
+      "idStatus": "dateless-model-id",
       "inputUsdPerMTok": 10,
       "outputUsdPerMTok": 50,
       "reasoningEffort": "low",
@@ -166,7 +168,7 @@
       "source": "official-api",
       "baseUrl": "https://api.openai.com",
       "probeAt": null,
-      "probeResult": "pending-budget",
+      "probeResult": "pending-gate-stop",
       "riskNote": "minimum reasoning effort is low; pilot must verify parseability and measured reasoning-token cost"
     }
   ],

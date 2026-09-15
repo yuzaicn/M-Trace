@@ -22,6 +22,8 @@ The 20 slots are frozen before calibration to prevent threshold shopping:
 
 The frozen identities are recorded in `acceptance-manifest.json`. Selection excludes aliases or snapshots of an in-bank model, discloses quantization/serving settings, and remains frozen by hash before collection. Calibration uses a separate development-negative set; none of these 20 may tune `maxDistance`, `minMargin`, or `minRelativeMargin`.
 
+The first planned 0.0.2 re-freeze item is to restore three-provider diversity in the hosted stratum by replacing two slots with older Anthropic snapshots. It is intentionally excluded from 0.0.1 until the frozen request-shape contract supports Anthropic's required `max_tokens`, with matching collector tests, pilot coverage, and first-party credential evidence.
+
 ## Candidate pools and ordered decisions
 
 The model-level candidate pool includes all entries matching `extractorVersion` and `suiteVersion` whose valid sample count meets the floor. Evidence below the floor short-circuits to `unknown / insufficient-evidence`. If the closest distance exceeds `maxDistance`, return `unknown / out-of-library`. Otherwise compute `margin = d(2) - d(1)` and `relMargin = d(2) === 0 ? 0 : margin / d(2)`; fewer than two candidates cannot pass separation.
