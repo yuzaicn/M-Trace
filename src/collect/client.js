@@ -8,6 +8,8 @@ import {
 } from '../fingerprint/numeric.js';
 import { challengeHash } from '../probe/challenge-suite.js';
 
+const EXTRACTOR_VERSION = '1.0.0';
+
 const ALLOWED_RESPONSE_HEADERS = [
   'content-type',
   'x-request-id',
@@ -440,6 +442,7 @@ export async function collect({
           requestId: response.headers.get('x-request-id') ?? null,
           challengeId: challenge.id,
           challengeHash: challengeHash(challenge),
+          extractorVersion: EXTRACTOR_VERSION,
           suiteVersion: challenge.suiteVersion ?? null,
           evaluationRole: challenge.evaluationRole ?? 'scored',
           protocol,
@@ -467,6 +470,7 @@ export async function collect({
           recordType: 'raw-probe-v1',
           request: {
             challengeId: challenge.id,
+            extractorVersion: EXTRACTOR_VERSION,
             suiteVersion: challenge.suiteVersion ?? null,
             evaluationRole: challenge.evaluationRole ?? 'scored',
             protocol,

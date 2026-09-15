@@ -76,6 +76,11 @@ test('published JSON schema pins Suite 2 and all required additions', async () =
       'openai-responses',
     ),
   );
+  assert.deepEqual(schema.$defs.entry.properties.transport.enum, [
+    'direct',
+    'tunnel',
+    'mixed',
+  ]);
   for (const field of [
     'minRelativeMargin',
     'distanceScale',
@@ -148,4 +153,12 @@ test('rejects mutation and bank-version drift', () => {
   const drifted = fixture();
   drifted.entries[0].bankVersion = '2026.10.1';
   assert.throws(() => validateBank(drifted), /bankVersion mismatch/);
+});
+
+test('accepts mixed transport only at bank-entry summary level', () => {
+  const bank = fixture();
+  bank.entries[0].transport = 'mixed';
+  bank.entries[0].contentHash = contentHash(bank.entries[0]);
+  bank.contentHash = contentHash(bank);
+  assert.equal(validateBank(bank), bank);
 });

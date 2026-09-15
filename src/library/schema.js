@@ -184,8 +184,8 @@ export function validateBank(
         `${path}.generationOptions contains a forbidden Suite 2 option`,
       );
     }
-    if (!['direct', 'tunnel'].includes(entry.transport)) {
-      throw new TypeError(`${path}.transport must be direct or tunnel`);
+    if (!['direct', 'tunnel', 'mixed'].includes(entry.transport)) {
+      throw new TypeError(`${path}.transport must be direct, tunnel, or mixed`);
     }
     if (entry.usage !== null) {
       if (

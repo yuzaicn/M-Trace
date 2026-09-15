@@ -506,6 +506,8 @@ test('OpenAI Responses variant uses native fields and records transport provenan
         assert.equal(record.requestShape, 'openai-responses');
         assert.equal(record.effort, 'medium');
         assert.equal(record.transport, 'tunnel');
+        assert.equal(record.extractorVersion, '1.0.0');
+        assert.equal(record.suiteVersion, challenge.suiteVersion ?? null);
       }
       assert.deepEqual(normalized.values, [1, 2, 3, 4]);
       assert.equal(normalized.usage.output_tokens, 7);
