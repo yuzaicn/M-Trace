@@ -27,6 +27,21 @@ if (process.argv.includes('--help')) {
   process.exit(0);
 }
 
+const transport = option('--transport', 'direct');
+const envProxyEnabled = process.execArgv.includes('--use-env-proxy');
+const tunnelProxy = process.env.HTTPS_PROXY ?? process.env.https_proxy;
+const proxyActive = envProxyEnabled && Boolean(tunnelProxy);
+if (transport === 'tunnel' && !proxyActive) {
+  throw new Error(
+    'tunnel transport requires node --use-env-proxy and HTTPS_PROXY; --transport only records provenance',
+  );
+}
+if (transport === 'direct' && proxyActive) {
+  throw new Error(
+    'direct transport cannot be recorded while Node environment-proxy routing is active',
+  );
+}
+
 const keyEnv = option('--key-env');
 const key = keyEnv ? process.env[keyEnv] : undefined;
 if (!key)
@@ -57,7 +72,7 @@ const result = await collect({
   timeoutMs: Number(option('--timeout-ms', '20000')),
   samplingMode: option('--sampling-mode', 'provider-default'),
   requestShape: option('--request-shape'),
-  transport: option('--transport', 'direct'),
+  transport,
   generationOptions: jsonOption('--generation-options-json'),
   requireOfficialOpenAI: process.argv.includes('--official-openai-only'),
 });

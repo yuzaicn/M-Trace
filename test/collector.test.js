@@ -455,7 +455,7 @@ test('OpenAI Responses variant uses native fields and records transport provenan
       let requestBody = '';
       for await (const chunk of request) requestBody += chunk;
       const requestJson = JSON.parse(requestBody);
-      assert.equal(requestJson.model, 'gpt-5.5-pro-2026-04-23');
+      assert.equal(requestJson.model, 'gpt-5.5-pro');
       assert.equal(requestJson.input, challenge.prompt);
       assert.equal(requestJson.max_output_tokens, 4096);
       assert.equal(requestJson.max_completion_tokens, undefined);
@@ -486,7 +486,7 @@ test('OpenAI Responses variant uses native fields and records transport provenan
       const result = await collect({
         baseUrl,
         key: 'official-mock-key',
-        model: 'gpt-5.5-pro-2026-04-23',
+        model: 'gpt-5.5-pro',
         protocol: 'openai',
         challenges: [challenge],
         rawPath,
@@ -510,6 +510,8 @@ test('OpenAI Responses variant uses native fields and records transport provenan
         assert.equal(record.suiteVersion, challenge.suiteVersion ?? null);
       }
       assert.deepEqual(normalized.values, [1, 2, 3, 4]);
+      assert.equal(normalized.requestedModel, 'gpt-5.5-pro');
+      assert.equal(normalized.selfReportedModel, 'gpt-5.5-pro-2026-04-23');
       assert.equal(normalized.usage.output_tokens, 7);
       assert.equal(normalized.usage.output_tokens_details.reasoning_tokens, 3);
     },

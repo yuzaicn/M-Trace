@@ -359,7 +359,7 @@ export async function collect({
       endpoint.hash
     ) {
       throw new Error(
-        'official OpenAI collection requires https://api.openai.com with no proxy or extra path',
+        'official OpenAI collection requires https://api.openai.com as the base URL, with no credentials or extra path',
       );
     }
   }

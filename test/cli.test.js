@@ -16,3 +16,26 @@ test('CLI help includes English, Chinese, and the version', async () => {
   assert.match(stdout, /Usage/);
   assert.match(stdout, /用法/);
 });
+
+test('collector CLI rejects tunnel provenance without Node env-proxy support', async () => {
+  await assert.rejects(
+    execFileAsync(
+      process.execPath,
+      [
+        new URL('../bin/m-trace-collect.js', import.meta.url).pathname,
+        '--transport',
+        'tunnel',
+      ],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          OPENAI_API_KEY: 'test-only-key',
+          HTTPS_PROXY: '',
+          https_proxy: '',
+        },
+      },
+    ),
+    /tunnel transport requires node --use-env-proxy and HTTPS_PROXY/,
+  );
+});

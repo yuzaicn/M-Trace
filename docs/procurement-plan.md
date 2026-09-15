@@ -1,34 +1,45 @@
 # 首版指纹库采购清单（GUCH-362）
 
-状态：`pending-budget-and-contract-approval`。owner 已将 0.0.1 库内范围改为 OpenAI-only，且发布日期必须 ≥ 2026-04-15。本清单以 2026-09-15 拉取的 models.dev 价格和发布日期做预算候选，并以 OpenAI 官方文档和付费前的官方直连探活作最终门禁；候选不等于已探活。
+状态：`pilot-passed-awaiting-full-collection-approval`。owner 已将 0.0.1 库内范围改为 OpenAI-only，且发布日期必须 ≥ 2026-04-15。本清单以 2026-09-15 拉取的 models.dev 价格和发布日期做预算候选，并以 OpenAI 官方文档和已批准的官方端点探活作最终门禁。
 
 ## 统一口径与硬门槛
 
 - 正式采集仍采用 3 families × 12 environments × 3 replicates = 108 calls/identity/round，环境网格不变；做建库与第 14 天漂移复测两轮。
 - OpenAI-only 候选不发送 `temperature`/`top_p`，使用厂商默认采样；发送 `max_completion_tokens` 而非 `max_tokens`，并冻结 `reasoning_effort`。默认采样漂移是明确失效条件，必须以漂移复测与新 `bankVersion` 处理，不能覆盖旧指纹。
-- 全量采集前必须先完成 6 型号各一次、恰好 16 整数的最小试点。六项全部通过才放全量；任一失败即停止。特别是 `gpt-5.5-pro` 或 `gpt-6-astra` 失败会让库少于 6 个，不得自行补型或放宽窗口。
-- 只允许 `https://api.openai.com` 官方直连与 platform.openai.com 官方 key。共享网关、镜像、转售 key、sub2api、codex-proxy 一律禁止。拿到预算和凭据后先 `GET /v1/models` 核对可见模型，再做试点。
-- 试点必须回读并保存完整 `usage`，包括可用时的 `completion_tokens_details.reasoning_tokens`，据此把成本从估算换为实测；所有 `probeAt` 当前为空、`probeResult` 为 `pending-budget`。
+- 全量采集前必须先完成 6 型号各一次、恰好 16 整数的最小试点。2026-09-15 六项均通过；不得因试点通过而绕过全量放行或改变模型、采样量及参数。
+- 只允许 platform.openai.com 官方 key 与 TLS 终止于 `api.openai.com` 的官方 API。共享网关、镜像、转售 key、sub2api、codex-proxy 一律禁止。本次试点经审计后的本机 HTTP CONNECT 隧道传输，六条响应均记录 `transport: tunnel`。
+- 试点回读并保存了完整 `usage`，包括 Chat 的 `completion_tokens_details.reasoning_tokens` 与 Responses 的 `output_tokens_details.reasoning_tokens`。这只替换最小试点的估算，不足以确定全量成本。
 
 ## 6 个库内候选（OpenAI-only）
 
 下表金额按每模型约 3,000 输入 + 27,000 输出 token 的单重复单元（36 calls）估算，仅用于型号间比较；正式一轮为 3 个重复（108 calls），token 与基础金额均为下表的 3 倍。reasoning token 与重试上浮尚未实测。
 
-| 官方 `model` 字段        | 发布       | 归因世代         | 输入/输出 USD/MTok | 最低 effort | 36-call 单重复单元 CNY | ID/试点状态                                     |
-| ------------------------ | ---------- | ---------------- | -----------------: | ----------- | ---------------------: | ----------------------------------------------- |
-| `gpt-5.5-2026-04-23`     | 2026-04-23 | OpenAI 5.5       |             5 / 30 | `none`      |                  ¥5.90 | dated snapshot；待试点                          |
-| `gpt-5.5-pro-2026-04-23` | 2026-04-23 | OpenAI 5.5 Pro   |           30 / 180 | `medium`    |                 ¥35.39 | dated snapshot；试点 HTTP 404，已停             |
-| `gpt-5.6-sol`            | 2026-07-09 | OpenAI 5.6 Sol   |             4 / 20 | `none`      |                  ¥3.95 | dateless ID；待试点                             |
-| `gpt-5.6-terra`          | 2026-07-09 | OpenAI 5.6 Terra |             2 / 12 | `none`      |                  ¥2.36 | dateless ID；待试点                             |
-| `gpt-5.6-luna`           | 2026-07-09 | OpenAI 5.6 Luna  |          0.2 / 1.2 | `none`      |                  ¥0.24 | dateless ID；待试点                             |
-| `gpt-6-astra`            | 2026-09-04 | OpenAI 6 Astra   |            10 / 50 | `low`       |                  ¥9.87 | dateless ID；最低 effort 仍会 reasoning；待试点 |
-| **合计/单重复单元**      |            |                  |                    |             |     **¥57.71（≈¥58）** |                                                 |
+| 官方 `model` 字段   | 发布       | 归因世代         | 输入/输出 USD/MTok | 最低 effort | 36-call 单重复单元 CNY | ID/试点状态                    |
+| ------------------- | ---------- | ---------------- | -----------------: | ----------- | ---------------------: | ------------------------------ |
+| `gpt-5.5`           | 2026-04-23 | OpenAI 5.5       |             5 / 30 | `none`      |                  ¥5.90 | rolling ID；Chat 试点通过      |
+| `gpt-5.5-pro`       | 2026-04-23 | OpenAI 5.5 Pro   |           30 / 180 | `medium`    |                 ¥35.39 | rolling ID；Responses 试点通过 |
+| `gpt-5.6-sol`       | 2026-07-09 | OpenAI 5.6 Sol   |             4 / 20 | `none`      |                  ¥3.95 | rolling ID；Chat 试点通过      |
+| `gpt-5.6-terra`     | 2026-07-09 | OpenAI 5.6 Terra |             2 / 12 | `none`      |                  ¥2.36 | rolling ID；Chat 试点通过      |
+| `gpt-5.6-luna`      | 2026-07-09 | OpenAI 5.6 Luna  |          0.2 / 1.2 | `none`      |                  ¥0.24 | rolling ID；Chat 试点通过      |
+| `gpt-6-astra`       | 2026-09-04 | OpenAI 6 Astra   |            10 / 50 | `low`       |                  ¥9.87 | rolling ID；Chat 试点通过      |
+| **合计/单重复单元** |            |                  |                    |             |     **¥57.71（≈¥58）** |                                |
 
 `gpt-5.6` 不是第七个库内身份；它在 2026-09-15 的官方模型列表核对中不可见，取消额外别名试打且不得同时入库。`gpt-realtime-2.1` 因 audio 模态、`gpt-image-2` 因图像用途排除。
 
-2026-09-15 使用官方直连 key 查询 `/v1/models` 后确认：5.5 与 5.5 Pro 的日期快照可见，因此入库与试点均固定到快照；Sol/Terra/Luna/Astra 没有可见快照，按 dateless ID 记录。`gpt-5.5-pro` 的试点必须使用非流式请求；全部候选仍以一次真实响应为最终证据。
+库内身份一律使用 dateless ID，其语义是厂商当前指针所指的服务，不是钉死快照。响应回显的 `model` 与 `systemFingerprint` 记录采集时指针解析结果；两周复测发现漂移时发新 `bankVersion`，不得覆盖旧库或让报告暗示身份已钉死。日期快照不保留为 alias。
 
-2026-09-15 试点首项 `gpt-5.5-pro-2026-04-23` 使用官方直连 Chat Completions、非流式、provider-default、`reasoning_effort=medium`、`retries=0`，返回 HTTP 404，未产生响应 JSONL 或 usage。后续裁决允许同一快照追加一次 Responses 诊断（`max_output_tokens=4096`、`reasoning.effort=medium`、无采样参数、4xx 零重试），其余五项继续走 Chat Completions；库构成不变。
+2026-09-15 试点中，dateless `gpt-5.5-pro` 的 Chat Completions 明确返回 HTTP 404（零重试、无 JSONL），随后获批的同一身份 Responses 诊断返回 HTTP 200，因此该 entry 的唯一形态冻结为 `openai-responses`。其余五个身份以 `openai-reasoning-chat-completions` 通过。
+
+| dateless 身份   | 形态      | HTTP | 可解析整数 | output tokens | reasoning tokens | transport |
+| --------------- | --------- | ---: | ---------: | ------------: | ---------------: | --------- |
+| `gpt-5.5`       | Chat      |  200 |         16 |            51 |                0 | tunnel    |
+| `gpt-5.5-pro`   | Responses |  200 |         16 |           128 |               89 | tunnel    |
+| `gpt-5.6-sol`   | Chat      |  200 |         16 |            51 |                0 | tunnel    |
+| `gpt-5.6-terra` | Chat      |  200 |         16 |            36 |                0 | tunnel    |
+| `gpt-5.6-luna`  | Chat      |  200 |         16 |            51 |                0 | tunnel    |
+| `gpt-6-astra`   | Chat      |  200 |         16 |            51 |                0 | tunnel    |
+
+六条成功响应合计 198 input tokens、368 output tokens（其中 89 reasoning tokens）、566 total tokens；按采购表单价与汇率折算约 ¥0.22。Pro 的 Chat 404 无 usage。该最小试点只能校验接口与短序列成本，不能线性外推正式 108-call 长序列网格。
 
 ## 20 个库外开放集身份（6/6/6/2）
 

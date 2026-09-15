@@ -17,8 +17,8 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
   assert.deepEqual(
     manifest.libraryModels.map(({ modelId, family }) => [modelId, family]),
     [
-      ['gpt-5.5-2026-04-23', 'gpt-5.5'],
-      ['gpt-5.5-pro-2026-04-23', 'gpt-5.5'],
+      ['gpt-5.5', 'gpt-5.5'],
+      ['gpt-5.5-pro', 'gpt-5.5'],
       ['gpt-5.6-sol', 'gpt-5.6'],
       ['gpt-5.6-terra', 'gpt-5.6'],
       ['gpt-5.6-luna', 'gpt-5.6'],
@@ -67,19 +67,41 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
       probeResult,
     ]),
   );
-  assert.equal(
-    libraryProbeStates['gpt-5.5-pro-2026-04-23'],
-    'transport-unreachable-before-http',
-  );
+  assert.equal(libraryProbeStates['gpt-5.5-pro'], 'pilot-pass-responses');
   assert.ok(
-    manifest.libraryModels.every(({ transport }) => transport === 'direct'),
+    manifest.libraryModels.every(({ transport }) => transport === 'tunnel'),
+  );
+  assert.ok(manifest.probePolicy.provenanceFields.includes('transport'));
+  assert.ok(
+    manifest.libraryModels.every(
+      ({ providerHint }) => providerHint === 'openai-platform-official',
+    ),
   );
   assert.ok(
     manifest.libraryModels
-      .filter(({ modelId }) => modelId !== 'gpt-5.5-pro-2026-04-23')
+      .filter(({ modelId }) => modelId !== 'gpt-5.5-pro')
       .every(
         ({ probeAt, probeResult }) =>
-          probeAt === null && probeResult.startsWith('pending-'),
+          probeAt !== null && probeResult === 'pilot-pass-chat',
       ),
+  );
+  assert.ok(
+    manifest.libraryModels.every(
+      ({ probeAt, probeResult }) =>
+        probeAt !== null && probeResult.startsWith('pilot-pass-'),
+    ),
+  );
+  assert.ok(
+    manifest.libraryModels.every(
+      ({ idStatus }) => idStatus === 'rolling-model-id',
+    ),
+  );
+  assert.equal(
+    manifest.libraryModels.some(({ modelId, aliases = [] }) =>
+      [modelId, ...aliases].some((identity) =>
+        /-\d{4}-\d{2}-\d{2}$/.test(identity),
+      ),
+    ),
+    false,
   );
 });

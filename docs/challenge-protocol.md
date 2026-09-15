@@ -18,7 +18,7 @@ The four wrappers (`direct`, `brief`, `schema`, and `delimited`) convey the same
 
 ## Sampling and provenance
 
-Production collection uses `samplingSource: provider-default`. OpenAI reasoning calls use Chat Completions `reasoning_effort` and `max_completion_tokens`; they omit `temperature`, `top_p`, and `max_tokens`. Raw JSONL, normalized JSONL, and the resulting bank entry preserve `samplingSource`, `effort`, `requestShape`, `generationOptions`, provider usage, and `systemFingerprint`. The request shape and effort must be homogeneous within one bank entry.
+Production collection uses `samplingSource: provider-default`. OpenAI reasoning calls use either Chat Completions (`reasoning_effort` and `max_completion_tokens`) or, where provider availability requires it, Responses (`reasoning: { effort }` and `max_output_tokens`). Both shapes omit `temperature`, `top_p`, and `max_tokens`. Raw JSONL, normalized JSONL, and the resulting bank entry preserve `samplingSource`, `effort`, `requestShape`, `generationOptions`, `transport`, provider usage, and `systemFingerprint`. The request shape and effort must be homogeneous within one bank entry.
 
 Provider-default settings can drift outside our control. The scheduled re-probe detects that failure condition; drift creates a new `bankVersion` and never overwrites or reinterprets an earlier fingerprint.
 
