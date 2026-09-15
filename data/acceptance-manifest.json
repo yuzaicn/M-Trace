@@ -1,8 +1,8 @@
 {
   "manifestVersion": "1.1",
-  "status": "full-collection-partial-rate-limited",
+  "status": "full-collection-paused-credit-exhausted",
   "collectionRound1": {
-    "status": "partial-rate-limited",
+    "status": "paused-credit-exhausted",
     "requestedChallengesPerModel": 36,
     "transport": "tunnel",
     "attemptedByModel": {
@@ -37,7 +37,7 @@
       "totalTokens": 83903,
       "estimatedCny": 106.99
     },
-    "stopReason": "HTTP 429 persisted after bounded retries and a 55-second backoff; no partial records promoted to the bank",
+    "stopReason": "account credit balance exhausted after 23 completed Pro challenges; no partial records promoted to the bank",
     "recoveryProbes": {
       "model": "gpt-5.6-luna",
       "attempts": 2,
@@ -48,18 +48,23 @@
     },
     "automatic429Retry": {
       "model": "gpt-5.6-luna",
-      "status": "checkpointed-runtime-boundary",
+      "status": "parked-credit-balance-exhausted",
       "completedChallenges": 0,
       "missingChallenges": 36,
       "http429Responses": 5,
       "cumulativeWaitSeconds": 900,
-      "pendingWaitSeconds": 600,
-      "nextAction": "resume pending wait, then continue cheap models before Pro gaps",
+      "pendingWaitSeconds": 0,
+      "diagnosis": {
+        "source": "authorized-minimal-diagnostic",
+        "errorType": "insufficient_quota",
+        "errorCode": "credit_balance_exhausted"
+      },
+      "nextAction": "owner credit top-up, two consecutive minimal 200 probes, then cheap models before Pro gaps",
       "estimatedCny": 0
     }
   },
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:f6a4f7bc36bcaf1e3b99679df0372b2009686f8e4b731cee7a765d5f1e2e07df",
+  "contentHash": "sha256:bcceaf4c311dadc6520022f946fb83dfc905d4d57d1c74e0f24ee30d30a39444",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,

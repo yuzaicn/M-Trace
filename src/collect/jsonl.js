@@ -51,6 +51,12 @@ export async function retryCheckpointState(path) {
         pendingWaitByChallenge[checkpoint.challengeId] = checkpoint;
       } else if (checkpoint.phase === 'after-wait' && checkpoint.challengeId) {
         delete pendingWaitByChallenge[checkpoint.challengeId];
+      } else if (
+        ['quota-exhausted', 'wait-cancelled'].includes(checkpoint.phase) &&
+        checkpoint.challengeId
+      ) {
+        delete consecutive429ByChallenge[checkpoint.challengeId];
+        delete pendingWaitByChallenge[checkpoint.challengeId];
       }
     }
     return {

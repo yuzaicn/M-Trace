@@ -197,6 +197,39 @@ function redactSensitive(value, sensitive) {
   return value;
 }
 
+async function classify429(response, sensitive) {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    // Some compatible endpoints return an empty or non-JSON 429 response.
+  }
+  const type =
+    typeof payload?.error?.type === 'string'
+      ? redactSensitive(payload.error.type.slice(0, 128), sensitive)
+      : null;
+  const code =
+    typeof payload?.error?.code === 'string'
+      ? redactSensitive(payload.error.code.slice(0, 128), sensitive)
+      : null;
+  const quotaSignals = new Set([
+    'insufficient_quota',
+    'credit_balance_exhausted',
+  ]);
+  const quotaExhausted = quotaSignals.has(type) || quotaSignals.has(code);
+  const rateLimited =
+    type?.startsWith('rate_limit_') || code?.startsWith('rate_limit_');
+  return {
+    errorType: type,
+    errorCode: code,
+    category: quotaExhausted
+      ? 'quota-exhausted'
+      : rateLimited
+        ? 'rate-limit'
+        : 'unclassified-429',
+  };
+}
+
 function responseText(body) {
   return (body.output ?? [])
     .flatMap((item) => item.content ?? [])
@@ -490,12 +523,37 @@ export async function collect({
         );
         if (!response.ok) {
           if (response.status === 429) {
+            const classification = await classify429(response, [key, baseUrl]);
+            summary.retry429Count += 1;
+            if (classification.category === 'quota-exhausted') {
+              await appendJsonLine(rawPath, {
+                recordType: 'retry-checkpoint-v1',
+                checkpoint: {
+                  challengeId: challenge.id,
+                  challengeHash: challengeHash(challenge),
+                  model,
+                  requestShape,
+                  transport,
+                  httpStatus: 429,
+                  phase: 'quota-exhausted',
+                  errorType: classification.errorType,
+                  errorCode: classification.errorCode,
+                  retry429Count: summary.retry429Count,
+                  cumulativeWaitMs: summary.cumulative429WaitMs,
+                  stoppedAtMs: now(),
+                },
+              });
+              summary.failures.push({
+                challengeId: challenge.id,
+                message: `upstream quota exhausted (${classification.errorCode ?? classification.errorType ?? 'unknown'})`,
+              });
+              return summary;
+            }
             const waitMs = rateLimitWaitMs(
               response.headers.get('retry-after'),
               rateLimitRetry,
               now,
             );
-            summary.retry429Count += 1;
             const cumulativeWaitMsBefore = summary.cumulative429WaitMs;
             const cumulativeWaitMsAfter = cumulativeWaitMsBefore + waitMs;
             const checkpoint = {
@@ -508,6 +566,9 @@ export async function collect({
               waitMs,
               retry429Count: summary.retry429Count,
               consecutive429Count: rateLimitRetry + 1,
+              errorType: classification.errorType,
+              errorCode: classification.errorCode,
+              category: classification.category,
               startedAtMs: now(),
             };
             await appendJsonLine(rawPath, {

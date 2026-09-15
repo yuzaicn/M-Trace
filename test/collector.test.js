@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createServer } from 'node:http';
 import test from 'node:test';
 import { collect, parseTokens } from '../src/collect/client.js';
+import { retryCheckpointState } from '../src/collect/jsonl.js';
 
 const challenge = {
   id: 'mock:1',
@@ -197,6 +198,108 @@ test('429 retries do not consume bounded retries and clamp retry-after to ten mi
     },
   );
   assert.equal(calls, 4);
+});
+
+test('quota exhaustion 429 checkpoints and exits without sleeping or retrying', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  const secret = 'mock-quota-secret';
+  const waits = [];
+  let calls = 0;
+  await withServer(
+    (_request, response) => {
+      calls += 1;
+      response.writeHead(429, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          error: {
+            type: 'insufficient_quota',
+            code: 'credit_balance_exhausted',
+            message: `no credits remain for ${secret}`,
+          },
+        }),
+      );
+    },
+    async (baseUrl) => {
+      const result = await collect({
+        baseUrl,
+        key: secret,
+        model: 'requested-a',
+        protocol: 'openai',
+        challenges: [challenge, { ...challenge, id: 'mock:2' }],
+        rawPath,
+        normalizedPath: join(directory, 'normalized.jsonl'),
+        stream: false,
+        retries: 5,
+        requestsPerMinute: 0,
+        samplingMode: 'challenge-temperature',
+        sleep: async (waitMs) => waits.push(waitMs),
+      });
+      assert.equal(calls, 1);
+      assert.deepEqual(waits, []);
+      assert.equal(result.attempted, 1);
+      assert.equal(result.completed, 0);
+      assert.equal(result.retry429Count, 1);
+      assert.equal(result.cumulative429WaitMs, 0);
+      assert.deepEqual(result.failures, [
+        {
+          challengeId: challenge.id,
+          message: 'upstream quota exhausted (credit_balance_exhausted)',
+        },
+      ]);
+      const persisted = await readFile(rawPath, 'utf8');
+      assert.doesNotMatch(persisted, new RegExp(secret));
+      const [record] = persisted
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.equal(record.checkpoint.phase, 'quota-exhausted');
+      assert.equal(record.checkpoint.errorType, 'insufficient_quota');
+      assert.equal(record.checkpoint.errorCode, 'credit_balance_exhausted');
+      assert.equal(record.checkpoint.waitMs, undefined);
+    },
+  );
+});
+
+test('quota checkpoint cancels a pending cross-process 429 wait', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'mtrace-'));
+  const rawPath = join(directory, 'raw.jsonl');
+  await writeFile(
+    rawPath,
+    [
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 5,
+          consecutive429Count: 5,
+          phase: 'before-wait',
+          waitMs: 600_000,
+          cumulativeWaitMs: 900_000,
+        },
+      },
+      {
+        recordType: 'retry-checkpoint-v1',
+        checkpoint: {
+          challengeId: challenge.id,
+          retry429Count: 5,
+          phase: 'quota-exhausted',
+          errorType: 'insufficient_quota',
+          errorCode: 'credit_balance_exhausted',
+          cumulativeWaitMs: 900_000,
+        },
+      },
+    ]
+      .map(JSON.stringify)
+      .join('\n') + '\n',
+    { mode: 0o600 },
+  );
+  assert.deepEqual(await retryCheckpointState(rawPath), {
+    cumulativeWaitMs: 900_000,
+    retry429Count: 5,
+    consecutive429ByChallenge: {},
+    pendingWaitByChallenge: {},
+  });
 });
 
 test('429 backoff resumes at the persisted exponential tier', async () => {
