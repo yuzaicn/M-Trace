@@ -73,6 +73,8 @@ owner 随后将限流类 429 改为无限自动等待：优先使用 `retry-afte
 
 随后一次经批准的独立最小诊断调用读取到 `type=insufficient_quota`、`code=credit_balance_exhausted`，把根因收敛为账户余额耗尽而非限流窗口；这项结论不是由上述正式采集进程自行观察得出。现有 600 秒待等待 checkpoint 已用带来源标记的 `quota-exhausted` 记录停放，不计作新的正式调用或 429。恢复依赖 owner 充值；充值后先用连续两次最小调用 200 通过恢复门禁，再按五个便宜型号、最后 Pro 13 个缺口的顺序续采。明确的余额耗尽 429 会立即写 checkpoint 并退出；只有限流类（以及无错误体、无法分类的兼容响应）继续自动等待。
 
+后续续采触发时，原未完成等待自 checkpoint 写入起的墙钟时间已超过 600 秒；由于 `quota-exhausted` 记录已清除待恢复 sleep，未额外重复等待。采集器随后用 Luna 发起一次 16 整数最小探测，自身再次读取到相同的 `insufficient_quota` / `credit_balance_exhausted`，立即写终止 checkpoint 并退出：HTTP 429，无 usage、无 normalized 记录、无成功计费。连续两次 200 门禁仍未通过，因此没有启动 Luna 正式 challenge、其它便宜型号或 Pro 缺口。
+
 ## 协议与可信度限制
 
 GUCH-363 已冻结 Suite 2.0：全族采样语义为 provider default，`modelFamily` 对外语义为 OpenAI 世代（`gpt-5.5` / `gpt-5.6` / `gpt-6`）。正式采集仍必须等待本仓库对齐实现复核和六型号试点全部通过。

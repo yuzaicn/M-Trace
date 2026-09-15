@@ -40,11 +40,15 @@
     "stopReason": "account credit balance exhausted after 23 completed Pro challenges; no partial records promoted to the bank",
     "recoveryProbes": {
       "model": "gpt-5.6-luna",
-      "attempts": 2,
-      "statuses": [429, 429],
-      "intervalSeconds": 8,
+      "attempts": 3,
+      "statuses": [429, 429, 429],
+      "firstPairIntervalSeconds": 8,
       "gate": "consecutive-two-200",
-      "passed": false
+      "passed": false,
+      "lastProbeAt": "2026-09-15T13:03:30.795Z",
+      "lastErrorType": "insufficient_quota",
+      "lastErrorCode": "credit_balance_exhausted",
+      "lastProbeUsage": null
     },
     "automatic429Retry": {
       "model": "gpt-5.6-luna",
@@ -55,7 +59,8 @@
       "cumulativeWaitSeconds": 900,
       "pendingWaitSeconds": 0,
       "diagnosis": {
-        "source": "authorized-minimal-diagnostic",
+        "source": "collector-recovery-probe",
+        "corroborates": "authorized-minimal-diagnostic",
         "errorType": "insufficient_quota",
         "errorCode": "credit_balance_exhausted"
       },
@@ -64,7 +69,7 @@
     }
   },
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:bcceaf4c311dadc6520022f946fb83dfc905d4d57d1c74e0f24ee30d30a39444",
+  "contentHash": "sha256:cbadf01cb0eac3a3f3b5841cef805d6f4467e13c418ef32dfb13658cade7de38",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,
