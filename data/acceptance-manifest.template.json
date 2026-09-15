@@ -6,7 +6,8 @@
     "minimumResponsesPerModel": 3,
     "minimumEnvironmentsPerModel": 3,
     "calibrationUseForbidden": true,
-    "openSetModelCount": 8,
+    "openSetSlotCount": 8,
+    "openSetModelCount": null,
     "openSetStrata": "OpenAI older-generation near negatives <=6 plus routing 2"
   },
   "slots": [

@@ -95,6 +95,14 @@ test('evaluation runs leave-one-environment-out, configurable open set, and spli
   assert.equal(report.protocolVersion, '2.0.0');
   assert.equal(report.closedSet.sampleCount, 6);
   assert.equal(report.openSet.distinctModels, 20);
+  assert.equal(report.openSet.availableIdentityCount, 20);
+  assert.equal(report.openSet.expectedIdentityCount, 20);
+  assert.deepEqual(report.openSet.rateContext, {
+    availableIdentityCount: 20,
+    expectedIdentityCount: 20,
+    sampleCount: report.openSet.sampleCount,
+  });
+  assert.deepEqual(report.openSet.macroRateContext, report.openSet.rateContext);
   assert.equal(typeof report.openSet.misattributionRate, 'number');
   assert.equal(report.openSet.modelRates.length, 20);
   assert.ok(report.openSet.eligibility.every((item) => item.eligible));

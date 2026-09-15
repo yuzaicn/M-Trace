@@ -23,6 +23,12 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
   assert.equal(manifest.libraryModels.length, 6);
   assert.equal(manifest.slots.length, 8);
   assert.equal(manifest.availability.length, 8);
+  assert.equal(manifest.rules.openSetSlotCount, 8);
+  assert.equal(manifest.rules.openSetModelCount, 2);
+  assert.equal(
+    manifest.rules.openSetStrata,
+    'OpenAI older-generation near negatives <=6 plus routing 2',
+  );
   assert.deepEqual(
     manifest.libraryModels.map(({ modelId, family }) => [modelId, family]),
     [
@@ -64,6 +70,12 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
         vendor === 'OpenAI' || source === 'routing-endpoint',
     ),
   );
+  assert.equal(
+    manifest.slots
+      .filter(({ slotId }) => slotId.startsWith('near-negative-'))
+      .some(({ modelId }) => /-\d{4}-\d{2}-\d{2}$/.test(modelId)),
+    false,
+  );
   assert.deepEqual(
     manifest.availability.map(({ slotId, modelId }) => [slotId, modelId]),
     manifest.slots.map(({ slotId, modelId }) => [slotId, modelId]),
@@ -71,8 +83,30 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
   assert.ok(
     manifest.availability.every(
       (item) =>
-        item.probeAt === null && item.probeResult.startsWith('pending-'),
+        item.probeAt === null &&
+        (item.probeResult.startsWith('pending-') ||
+          item.probeResult === 'unavailable'),
     ),
+  );
+  assert.ok(
+    manifest.availability
+      .filter(({ slotId }) => slotId.startsWith('near-negative-'))
+      .every(
+        ({ idStatus, probeResult, unavailabilityReason }) =>
+          idStatus === 'rolling-model-id' &&
+          probeResult === 'unavailable' &&
+          unavailabilityReason === 'not-visible-in-approved-model-list',
+      ),
+  );
+  assert.ok(
+    manifest.availability
+      .filter(({ slotId }) => slotId.startsWith('routing-'))
+      .every(
+        ({ idStatus, transport, endpointHost }) =>
+          idStatus === 'identity-unknown-by-construction' &&
+          transport === 'direct' &&
+          endpointHost === 'all-api.ccode.dev',
+      ),
   );
   const libraryProbeStates = Object.fromEntries(
     manifest.libraryModels.map(({ modelId, probeResult }) => [

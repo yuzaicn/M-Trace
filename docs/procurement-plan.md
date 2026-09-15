@@ -43,18 +43,18 @@
 
 ## 8 个库外开放集身份（OpenAI 老世代 ≤6 + 路由 2）
 
-| 分层 / 槽位      | 厂商或部署          | 冻结 `model` 字段         | 家族 / 世代                | 来源与备注                                |
-| ---------------- | ------------------- | ------------------------- | -------------------------- | ----------------------------------------- |
-| near-negative-01 | OpenAI              | `gpt-5.4-2026-03-05`      | OpenAI / 5.4 snapshot      | 官方快照；库内窗口外近邻                  |
-| near-negative-02 | OpenAI              | `gpt-5.4-mini-2026-03-17` | OpenAI / 5.4 Mini snapshot | 官方快照；库内窗口外近邻                  |
-| near-negative-03 | OpenAI              | `gpt-5.4-nano-2026-03-17` | OpenAI / 5.4 nano snapshot | 官方快照；库内窗口外近邻                  |
-| near-negative-04 | OpenAI              | `gpt-5.2-2025-12-11`      | OpenAI / 5.2 snapshot      | 官方快照；库内旧世代近邻                  |
-| near-negative-05 | OpenAI              | `gpt-5.1-2025-11-13`      | OpenAI / 5.1 snapshot      | 官方快照；库内旧世代近邻                  |
-| near-negative-06 | OpenAI              | `gpt-4.1-2025-04-14`      | OpenAI / 4.1 snapshot      | 官方快照；非 reasoning 近邻               |
-| routing-01       | `all-api.ccode.dev` | `routing-slot-01`         | OpenAI route / unknown     | 直连路由端点；永不入 bank，构造即 unknown |
-| routing-02       | `all-api.ccode.dev` | `routing-slot-02`         | OpenAI route / unknown     | 直连路由端点；永不入 bank，构造即 unknown |
+| 分层 / 槽位      | 厂商或部署          | 冻结 `model` 字段 | 家族 / 世代                  | 来源与备注                                            |
+| ---------------- | ------------------- | ----------------- | ---------------------------- | ----------------------------------------------------- |
+| near-negative-01 | OpenAI              | `gpt-5.4`         | OpenAI / 5.4 rolling ID      | 官方 dateless ID；当前批准 key 不可见，记 unavailable |
+| near-negative-02 | OpenAI              | `gpt-5.4-mini`    | OpenAI / 5.4 Mini rolling ID | 官方 dateless ID；当前批准 key 不可见，记 unavailable |
+| near-negative-03 | OpenAI              | `gpt-5.4-nano`    | OpenAI / 5.4 nano rolling ID | 官方 dateless ID；当前批准 key 不可见，记 unavailable |
+| near-negative-04 | OpenAI              | `gpt-5.2`         | OpenAI / 5.2 rolling ID      | 官方 dateless ID；当前批准 key 不可见，记 unavailable |
+| near-negative-05 | OpenAI              | `gpt-5.1`         | OpenAI / 5.1 rolling ID      | 官方 dateless ID；当前批准 key 不可见，记 unavailable |
+| near-negative-06 | OpenAI              | `gpt-4.1`         | OpenAI / 4.1 rolling ID      | 官方 dateless ID；当前批准 key 不可见，记 unavailable |
+| routing-01       | `all-api.ccode.dev` | `routing-slot-01` | OpenAI route / unknown       | 直连路由端点；永不入 bank，构造即 unknown             |
+| routing-02       | `all-api.ccode.dev` | `routing-slot-02` | OpenAI route / unknown       | 直连路由端点；永不入 bank，构造即 unknown             |
 
-库内/库外不得出现 alias、snapshot 或量化变体重叠。任何型号、revision、分层或路由规则变化都必须先重算 `acceptance-manifest.json` 的 `contentHash`；采集后禁止按阈值表现换身份。
+库内/库外不得出现 alias、snapshot 或量化变体重叠。当前批准 key 未在 `GET /v1/models` 暴露上述六个老世代 dateless ID，故 manifest 将其冻结为 `unavailable`；不可静默替补。任何型号、revision、分层或路由规则变化都必须先重算 `acceptance-manifest.json` 的 `contentHash`；采集后禁止按阈值表现换身份。
 
 ## 成本与决策点
 

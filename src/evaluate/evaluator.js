@@ -246,10 +246,20 @@ export function evaluateOutOfLibrary(inLibrary, outOfLibrary, thresholds) {
     ? modelRates.reduce((sum, item) => sum + item.unknownRate, 0) /
       modelRates.length
     : null;
-  const expectedModelCount = thresholds.expectedOpenSetModels ?? 8;
+  const expectedModelCount = thresholds.expectedOpenSetModels ?? 2;
+  const availableIdentityCount = byModel.size;
+  const rateContext = {
+    availableIdentityCount,
+    expectedIdentityCount: expectedModelCount,
+    sampleCount: predictions.length,
+  };
   return {
     sampleCount: predictions.length,
-    distinctModels: byModel.size,
+    distinctModels: availableIdentityCount,
+    availableIdentityCount,
+    expectedIdentityCount: expectedModelCount,
+    rateContext,
+    macroRateContext: rateContext,
     misattributionRate: predictions.length
       ? misattributed / predictions.length
       : null,
@@ -374,7 +384,7 @@ export function evaluateDataset(
     maxDistance,
     minMargin,
     minRelativeMargin,
-    expectedOpenSetModels = 8,
+    expectedOpenSetModels = 2,
     seed = 73013,
     rng,
   },

@@ -48,7 +48,7 @@
     }
   },
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:c813a07ab12903d2e43ade2bc4f09e03e9653c45a19ba77421d5adfaca1ae487",
+  "contentHash": "sha256:71602bfe8b5c0a1207e74a7f7a4d246b2855a916306d79832d2be50a4edecc58",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,
@@ -59,7 +59,8 @@
     "routingGate": "unknown-by-construction",
     "pilotAllModelsMustPass": true,
     "pilotFailureAction": "stop-and-report; no substitution without owner decision",
-    "openSetModelCount": 8,
+    "openSetSlotCount": 8,
+    "openSetModelCount": 2,
     "openSetStrata": "OpenAI older-generation near negatives <=6 plus routing 2"
   },
   "probePolicy": {
@@ -237,54 +238,54 @@
       "slotId": "near-negative-01",
       "stratum": "represented-family-unrepresented-generation",
       "vendor": "OpenAI",
-      "modelId": "gpt-5.4-2026-03-05",
+      "modelId": "gpt-5.4",
       "family": "OpenAI",
-      "generation": "5.4 snapshot",
+      "generation": "5.4 rolling model ID",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-02",
       "stratum": "represented-family-unrepresented-generation",
       "vendor": "OpenAI",
-      "modelId": "gpt-5.4-mini-2026-03-17",
+      "modelId": "gpt-5.4-mini",
       "family": "OpenAI",
-      "generation": "5.4 Mini snapshot",
+      "generation": "5.4 Mini rolling model ID",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-03",
       "stratum": "represented-family-unrepresented-generation",
       "vendor": "OpenAI",
-      "modelId": "gpt-5.4-nano-2026-03-17",
+      "modelId": "gpt-5.4-nano",
       "family": "OpenAI",
-      "generation": "5.4 nano snapshot",
+      "generation": "5.4 nano rolling model ID",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-04",
       "stratum": "represented-family-unrepresented-generation",
       "vendor": "OpenAI",
-      "modelId": "gpt-5.2-2025-12-11",
+      "modelId": "gpt-5.2",
       "family": "OpenAI",
-      "generation": "5.2 snapshot",
+      "generation": "5.2 rolling model ID",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-05",
       "stratum": "represented-family-unrepresented-generation",
       "vendor": "OpenAI",
-      "modelId": "gpt-5.1-2025-11-13",
+      "modelId": "gpt-5.1",
       "family": "OpenAI",
-      "generation": "5.1 snapshot",
+      "generation": "5.1 rolling model ID",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-06",
       "stratum": "represented-family-unrepresented-generation",
       "vendor": "OpenAI",
-      "modelId": "gpt-4.1-2025-04-14",
+      "modelId": "gpt-4.1",
       "family": "OpenAI",
-      "generation": "4.1 snapshot",
+      "generation": "4.1 rolling model ID",
       "source": "official-api"
     },
     {
@@ -313,51 +314,57 @@
   "availability": [
     {
       "slotId": "near-negative-01",
-      "modelId": "gpt-5.4-2026-03-05",
-      "idStatus": "dated-snapshot",
+      "modelId": "gpt-5.4",
+      "idStatus": "rolling-model-id",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
     },
     {
       "slotId": "near-negative-02",
-      "modelId": "gpt-5.4-mini-2026-03-17",
-      "idStatus": "dated-snapshot",
+      "modelId": "gpt-5.4-mini",
+      "idStatus": "rolling-model-id",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
     },
     {
       "slotId": "near-negative-03",
-      "modelId": "gpt-5.4-nano-2026-03-17",
-      "idStatus": "dated-snapshot",
+      "modelId": "gpt-5.4-nano",
+      "idStatus": "rolling-model-id",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
     },
     {
       "slotId": "near-negative-04",
-      "modelId": "gpt-5.2-2025-12-11",
-      "idStatus": "dated-snapshot",
+      "modelId": "gpt-5.2",
+      "idStatus": "rolling-model-id",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
     },
     {
       "slotId": "near-negative-05",
-      "modelId": "gpt-5.1-2025-11-13",
-      "idStatus": "dated-snapshot",
+      "modelId": "gpt-5.1",
+      "idStatus": "rolling-model-id",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
     },
     {
       "slotId": "near-negative-06",
-      "modelId": "gpt-4.1-2025-04-14",
-      "idStatus": "dated-snapshot",
+      "modelId": "gpt-4.1",
+      "idStatus": "rolling-model-id",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-budget"
+      "probeResult": "unavailable",
+      "unavailabilityReason": "not-visible-in-approved-model-list"
     },
     {
       "slotId": "routing-01",
