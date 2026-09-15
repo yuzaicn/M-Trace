@@ -2,6 +2,14 @@
 
 `m-trace-collect` supports OpenAI-compatible `/v1/chat/completions` and Anthropic `/v1/messages`, including SSE and JSON responses. It retries HTTP 429/5xx, enforces a per-request timeout, applies a request-per-minute interval, and resumes by skipping challenge IDs already present in the normalized JSONL file.
 
+Provider-specific generation controls are passed with `--generation-options-json`. They are copied into the request and recorded in both JSONL records so a thinking budget or disabled-thinking setting is part of the reproducibility record. For example, the preflight policy for reasoning models is:
+
+```sh
+--generation-options-json '{"thinking":{"type":"disabled"}}'
+```
+
+The exact field is provider-specific; the preflight must fail closed when a provider rejects it or silently returns a response with an unreported reasoning mode.
+
 Keys can only be named through `--key-env`; their values cannot be passed as arguments. JSONL records intentionally omit base URL, authorization headers, and local paths. Raw upstream response bodies are sensitive working data and must be reviewed before sharing. Files are appended with owner-only mode when newly created.
 
 Example against a local mock endpoint:

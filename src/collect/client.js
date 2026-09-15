@@ -18,12 +18,19 @@ function endpointFor(baseUrl, protocol) {
   const clean = baseUrl.replace(/\/$/, '');
   return protocol === 'anthropic'
     ? `${clean}/v1/messages`
-    : `${clean}/v1/chat/completions`;
+    : `${clean}${clean.endsWith('/v1') || clean.endsWith('/v1beta/openai') ? '' : '/v1'}/chat/completions`;
 }
 
-function requestFor(protocol, model, challenge, stream) {
+function requestFor(
+  protocol,
+  model,
+  challenge,
+  stream,
+  generationOptions = {},
+) {
   if (protocol === 'anthropic') {
     return {
+      ...generationOptions,
       model,
       max_tokens: Math.max(512, challenge.params.sequenceLength * 4),
       temperature: challenge.params.temperature,
@@ -32,6 +39,7 @@ function requestFor(protocol, model, challenge, stream) {
     };
   }
   return {
+    ...generationOptions,
     model,
     max_tokens: Math.max(512, challenge.params.sequenceLength * 4),
     temperature: challenge.params.temperature,
@@ -193,6 +201,7 @@ export async function collect({
   retries = 2,
   requestsPerMinute = 60,
   timeoutMs = 20_000,
+  generationOptions = {},
   fetchImpl = globalThis.fetch,
   now = Date.now,
   sleep = delay,
@@ -223,7 +232,9 @@ export async function collect({
         const response = await fetchImpl(endpointFor(baseUrl, protocol), {
           method: 'POST',
           headers: headersFor(protocol, key),
-          body: JSON.stringify(requestFor(protocol, model, challenge, stream)),
+          body: JSON.stringify(
+            requestFor(protocol, model, challenge, stream, generationOptions),
+          ),
           signal: globalThis.AbortSignal.timeout(timeoutMs),
         });
         if (!response.ok) {
@@ -272,6 +283,7 @@ export async function collect({
           selfReportedModel: extracted.selfReportedModel ?? null,
           finishReason: extracted.finishReason ?? null,
           usage: extracted.usage ?? null,
+          generationOptions,
         };
         const safeText = redactSensitive(extracted.text, [key, baseUrl]);
         const safeBody = redactSensitive(rawBody, [key, baseUrl]);
@@ -282,6 +294,7 @@ export async function collect({
             protocol,
             requestedModel: model,
             attempt,
+            generationOptions,
           },
           response: { ...metadata, text: safeText, body: safeBody },
         });

@@ -7,9 +7,19 @@ function option(name, fallback) {
   return index < 0 ? fallback : process.argv[index + 1];
 }
 
+function jsonOption(name) {
+  const value = option(name);
+  if (value === undefined) return {};
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`${name} must contain valid JSON`);
+  }
+}
+
 if (process.argv.includes('--help')) {
   console.log(
-    'Usage: m-trace-collect --protocol openai|anthropic --base-url URL --model ID --key-env ENV --raw FILE --normalized FILE',
+    'Usage: m-trace-collect --protocol openai|anthropic --base-url URL --model ID --key-env ENV --raw FILE --normalized FILE [--generation-options-json JSON]',
   );
   process.exit(0);
 }
@@ -38,6 +48,7 @@ const result = await collect({
   retries: Number(option('--retries', '2')),
   requestsPerMinute: Number(option('--rpm', '60')),
   timeoutMs: Number(option('--timeout-ms', '20000')),
+  generationOptions: jsonOption('--generation-options-json'),
 });
 console.log(JSON.stringify(result));
 process.exitCode = result.failures.length ? 1 : 0;

@@ -2,7 +2,7 @@
   "manifestVersion": "1.0",
   "status": "frozen-before-collection",
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:8cd233ac5c324d58aeff5ebadcc8cee70bb9649fa16acb8fc9bec9c5261a6eb9",
+  "contentHash": "sha256:6af336862b5d839ca83f445579483d6a62bd45398b25b585473cb0c1185d5a42",
   "rules": {
     "minimumResponsesPerModel": 3,
     "minimumEnvironmentsPerModel": 3,
@@ -17,29 +17,237 @@
     "probeCostMode": "pending-owner-budget",
     "probeMustUseFirstParty": true,
     "driftReviewAfterDays": 14,
-    "driftAction": "issue-new-bankVersion; never overwrite prior bank"
+    "driftAction": "issue-new-bankVersion; never overwrite prior bank",
+    "generationControl": "required-and-recorded",
+    "generationOptions": {
+      "dashscope": { "enable_thinking": false, "thinking_budget": 0 },
+      "gemini": { "thinkingConfig": { "thinkingBudget": 0 } }
+    },
+    "temperatureRequired": 1,
+    "preflightOutput": "exactly-16-integers"
   },
-  "slots": [
+  "libraryModels": [
     {
-      "slotId": "hosted-unrepresented-01",
-      "stratum": "unrepresented-hosted-family",
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3.8-max",
+      "family": "Qwen",
+      "generation": "3.8 Max",
+      "releaseDate": "2026-08-03",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 2,
+      "outputUsdPerMTok": 6,
+      "source": "official-api",
+      "baseUrl": "https://dashscope.aliyuncs.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3.7-max",
+      "family": "Qwen",
+      "generation": "3.7 Max",
+      "releaseDate": "2026-05-21",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 2.5,
+      "outputUsdPerMTok": 7.5,
+      "source": "official-api",
+      "baseUrl": "https://dashscope.aliyuncs.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3.7-plus",
+      "family": "Qwen",
+      "generation": "3.7 Plus",
+      "releaseDate": "2026-06-02",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.5,
+      "outputUsdPerMTok": 3,
+      "source": "official-api",
+      "baseUrl": "https://dashscope.aliyuncs.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3.6-max-preview",
+      "family": "Qwen",
+      "generation": "3.6 Max",
+      "releaseDate": "2026-04-20",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": true,
+      "inputUsdPerMTok": 1.3,
+      "outputUsdPerMTok": 7.8,
+      "source": "official-api",
+      "baseUrl": "https://dashscope.aliyuncs.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3.6-27b",
+      "family": "Qwen",
+      "generation": "3.6 27B",
+      "releaseDate": "2026-04-22",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.6,
+      "outputUsdPerMTok": 3.6,
+      "source": "official-api",
+      "baseUrl": "https://dashscope.aliyuncs.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3.6-flash",
+      "family": "Qwen",
+      "generation": "3.6 Flash",
+      "releaseDate": "2026-04-27",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.1875,
+      "outputUsdPerMTok": 1.125,
+      "source": "official-api",
+      "baseUrl": "https://dashscope.aliyuncs.com",
+      "probeAt": null,
+      "probeResult": "pending-budget",
+      "familyNote": "models.dev reports qwen3.6; retained under Qwen only after first-party probe"
+    },
+    {
+      "vendor": "Google",
+      "modelId": "gemini-3.8-flash",
+      "family": "Gemini",
+      "generation": "3.8 Flash",
+      "releaseDate": "2026-09-02",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.75,
+      "outputUsdPerMTok": 3.75,
+      "source": "official-api",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Google",
+      "modelId": "gemini-3.7-flash",
+      "family": "Gemini",
+      "generation": "3.7 Flash",
+      "releaseDate": "2026-08-13",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.75,
+      "outputUsdPerMTok": 3.75,
+      "source": "official-api",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
       "vendor": "Google",
       "modelId": "gemini-3.6-flash",
       "family": "Gemini",
       "generation": "3.6 Flash",
+      "releaseDate": "2026-07-21",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.75,
+      "outputUsdPerMTok": 3.75,
+      "source": "official-api",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Google",
+      "modelId": "gemini-3.5-flash",
+      "family": "Gemini",
+      "generation": "3.5 Flash",
+      "releaseDate": "2026-05-19",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 1.5,
+      "outputUsdPerMTok": 9,
+      "source": "official-api",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Google",
+      "modelId": "gemini-3.5-flash-lite",
+      "family": "Gemini",
+      "generation": "3.5 Flash Lite",
+      "releaseDate": "2026-07-21",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.3,
+      "outputUsdPerMTok": 2.5,
+      "source": "official-api",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "vendor": "Google",
+      "modelId": "gemini-3.1-flash-lite",
+      "family": "Gemini",
+      "generation": "3.1 Flash Lite",
+      "releaseDate": "2026-05-07",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "inputUsdPerMTok": 0.25,
+      "outputUsdPerMTok": 1.5,
+      "source": "official-api",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    }
+  ],
+  "slots": [
+    {
+      "slotId": "hosted-unrepresented-01",
+      "stratum": "unrepresented-hosted-family",
+      "vendor": "OpenAI",
+      "modelId": "gpt-5-nano-2025-08-07",
+      "family": "GPT",
+      "generation": "5 nano snapshot",
       "source": "official-api"
     },
     {
       "slotId": "hosted-unrepresented-02",
       "stratum": "unrepresented-hosted-family",
-      "vendor": "Google",
-      "modelId": "gemini-2.5-pro",
-      "family": "Gemini",
-      "generation": "2.5 Pro",
+      "vendor": "OpenAI",
+      "modelId": "gpt-4.1-2025-04-14",
+      "family": "GPT",
+      "generation": "4.1 snapshot",
       "source": "official-api"
     },
     {
       "slotId": "hosted-unrepresented-03",
+      "stratum": "unrepresented-hosted-family",
+      "vendor": "Anthropic",
+      "modelId": "claude-haiku-4-5-20251001",
+      "family": "Claude",
+      "generation": "Haiku 4.5 snapshot",
+      "source": "official-api"
+    },
+    {
+      "slotId": "hosted-unrepresented-04",
+      "stratum": "unrepresented-hosted-family",
+      "vendor": "Anthropic",
+      "modelId": "claude-sonnet-4-5-20250929",
+      "family": "Claude",
+      "generation": "Sonnet 4.5 snapshot",
+      "source": "official-api"
+    },
+    {
+      "slotId": "hosted-unrepresented-05",
       "stratum": "unrepresented-hosted-family",
       "vendor": "xAI",
       "modelId": "grok-4.6",
@@ -48,7 +256,7 @@
       "source": "official-api"
     },
     {
-      "slotId": "hosted-unrepresented-04",
+      "slotId": "hosted-unrepresented-06",
       "stratum": "unrepresented-hosted-family",
       "vendor": "xAI",
       "modelId": "grok-4.3",
@@ -57,75 +265,57 @@
       "source": "official-api"
     },
     {
-      "slotId": "hosted-unrepresented-05",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "DeepSeek",
-      "modelId": "deepseek-flash",
-      "family": "DeepSeek",
-      "generation": "V4.1 Flash",
-      "source": "official-api"
-    },
-    {
-      "slotId": "hosted-unrepresented-06",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "DeepSeek",
-      "modelId": "deepseek-v4-pro",
-      "family": "DeepSeek",
-      "generation": "V4 Pro-0813",
-      "source": "official-api"
-    },
-    {
       "slotId": "near-negative-01",
       "stratum": "represented-family-unrepresented-generation",
-      "vendor": "OpenAI",
-      "modelId": "gpt-5-nano-2025-08-07",
-      "family": "GPT",
-      "generation": "5 nano old snapshot",
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3-max",
+      "family": "Qwen",
+      "generation": "3 Max",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-02",
       "stratum": "represented-family-unrepresented-generation",
-      "vendor": "OpenAI",
-      "modelId": "gpt-4.1-2025-04-14",
-      "family": "GPT",
-      "generation": "4.1 snapshot",
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3-plus",
+      "family": "Qwen",
+      "generation": "3 Plus",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-03",
       "stratum": "represented-family-unrepresented-generation",
-      "vendor": "OpenAI",
-      "modelId": "gpt-4o-2024-11-20",
-      "family": "GPT",
-      "generation": "4o snapshot",
+      "vendor": "Alibaba Cloud DashScope",
+      "modelId": "qwen3-235b-a22b",
+      "family": "Qwen",
+      "generation": "3 235B A22B",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-04",
       "stratum": "represented-family-unrepresented-generation",
-      "vendor": "Anthropic",
-      "modelId": "claude-sonnet-4-5-20250929",
-      "family": "Claude",
-      "generation": "Sonnet 4.5 snapshot",
+      "vendor": "Google",
+      "modelId": "gemini-3.1-pro-preview",
+      "family": "Gemini",
+      "generation": "3.1 Pro preview",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-05",
       "stratum": "represented-family-unrepresented-generation",
-      "vendor": "Anthropic",
-      "modelId": "claude-haiku-4-5-20251001",
-      "family": "Claude",
-      "generation": "Haiku 4.5 snapshot",
+      "vendor": "Google",
+      "modelId": "gemini-2.5-pro-preview-05-06",
+      "family": "Gemini",
+      "generation": "2.5 Pro preview",
       "source": "official-api"
     },
     {
       "slotId": "near-negative-06",
       "stratum": "represented-family-unrepresented-generation",
-      "vendor": "Anthropic",
-      "modelId": "claude-opus-4-5-20251101",
-      "family": "Claude",
-      "generation": "Opus 4.5 snapshot",
+      "vendor": "Google",
+      "modelId": "gemini-2.5-flash",
+      "family": "Gemini",
+      "generation": "2.5 Flash",
       "source": "official-api"
     },
     {
@@ -224,54 +414,6 @@
   "availability": [
     {
       "slotId": "hosted-unrepresented-01",
-      "modelId": "gemini-3.6-flash",
-      "idStatus": "rolling-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-02",
-      "modelId": "gemini-2.5-pro",
-      "idStatus": "rolling-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-03",
-      "modelId": "grok-4.6",
-      "idStatus": "rolling-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-04",
-      "modelId": "grok-4.3",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-05",
-      "modelId": "deepseek-flash",
-      "idStatus": "documented-alias-to-version",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-06",
-      "modelId": "deepseek-v4-pro",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "near-negative-01",
       "modelId": "gpt-5-nano-2025-08-07",
       "idStatus": "dated-snapshot",
       "previewOrFastIteration": false,
@@ -279,7 +421,7 @@
       "probeResult": "pending-budget"
     },
     {
-      "slotId": "near-negative-02",
+      "slotId": "hosted-unrepresented-02",
       "modelId": "gpt-4.1-2025-04-14",
       "idStatus": "dated-snapshot",
       "previewOrFastIteration": false,
@@ -287,23 +429,7 @@
       "probeResult": "pending-budget"
     },
     {
-      "slotId": "near-negative-03",
-      "modelId": "gpt-4o-2024-11-20",
-      "idStatus": "dated-snapshot",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "near-negative-04",
-      "modelId": "claude-sonnet-4-5-20250929",
-      "idStatus": "dated-snapshot",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "near-negative-05",
+      "slotId": "hosted-unrepresented-03",
       "modelId": "claude-haiku-4-5-20251001",
       "idStatus": "dated-snapshot",
       "previewOrFastIteration": false,
@@ -311,9 +437,73 @@
       "probeResult": "pending-budget"
     },
     {
-      "slotId": "near-negative-06",
-      "modelId": "claude-opus-4-5-20251101",
+      "slotId": "hosted-unrepresented-04",
+      "modelId": "claude-sonnet-4-5-20250929",
       "idStatus": "dated-snapshot",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "hosted-unrepresented-05",
+      "modelId": "grok-4.6",
+      "idStatus": "rolling-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "hosted-unrepresented-06",
+      "modelId": "grok-4.3",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-01",
+      "modelId": "qwen3-max",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-02",
+      "modelId": "qwen3-plus",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-03",
+      "modelId": "qwen3-235b-a22b",
+      "idStatus": "stable-model-id",
+      "previewOrFastIteration": false,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-04",
+      "modelId": "gemini-3.1-pro-preview",
+      "idStatus": "preview-model-id",
+      "previewOrFastIteration": true,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-05",
+      "modelId": "gemini-2.5-pro-preview-05-06",
+      "idStatus": "preview-model-id",
+      "previewOrFastIteration": true,
+      "probeAt": null,
+      "probeResult": "pending-budget"
+    },
+    {
+      "slotId": "near-negative-06",
+      "modelId": "gemini-2.5-flash",
+      "idStatus": "stable-model-id",
       "previewOrFastIteration": false,
       "probeAt": null,
       "probeResult": "pending-budget"

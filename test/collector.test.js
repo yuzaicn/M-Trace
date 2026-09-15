@@ -43,9 +43,15 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
   const secret = 'sk-sensitive-test-value';
   let calls = 0;
   await withServer(
-    (request, response) => {
+    async (request, response) => {
       calls += 1;
       assert.equal(request.headers.authorization, `Bearer ${secret}`);
+      assert.equal(request.url, '/v1/chat/completions');
+      let requestBody = '';
+      for await (const chunk of request) requestBody += chunk;
+      const requestJson = JSON.parse(requestBody);
+      assert.deepEqual(requestJson.thinking, { type: 'disabled' });
+      assert.equal(requestJson.temperature, 1);
       if (calls === 1) {
         response.writeHead(429, { 'retry-after': '0' });
         response.end();
@@ -61,7 +67,7 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
     },
     async (baseUrl) => {
       const options = {
-        baseUrl,
+        baseUrl: `${baseUrl}/v1`,
         key: secret,
         model: 'requested-a',
         protocol: 'openai',
@@ -71,6 +77,7 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
         retries: 1,
         requestsPerMinute: 0,
         sleep: async () => {},
+        generationOptions: { thinking: { type: 'disabled' } },
       };
       assert.deepEqual(await collect(options), {
         attempted: 1,
@@ -90,10 +97,17 @@ test('collects OpenAI SSE, retries 429, resumes, and never persists key or endpo
         persisted,
         new RegExp(baseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
       );
-      assert.deepEqual(
-        JSON.parse((await readFile(normalizedPath, 'utf8')).trim()).values,
-        [1, 2, 3, 4],
+      const normalized = JSON.parse(
+        (await readFile(normalizedPath, 'utf8')).trim(),
       );
+      assert.deepEqual(normalized.values, [1, 2, 3, 4]);
+      assert.deepEqual(normalized.generationOptions, {
+        thinking: { type: 'disabled' },
+      });
+      const raw = JSON.parse((await readFile(rawPath, 'utf8')).trim());
+      assert.deepEqual(raw.request.generationOptions, {
+        thinking: { type: 'disabled' },
+      });
     },
   );
   assert.equal(calls, 2);
