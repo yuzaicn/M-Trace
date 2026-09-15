@@ -1,6 +1,6 @@
 # 首版指纹库采购清单（GUCH-362）
 
-状态：`pilot-passed-awaiting-full-collection-approval`。owner 已将 0.0.1 库内范围改为 OpenAI-only，且发布日期必须 ≥ 2026-04-15。本清单以 2026-09-15 拉取的 models.dev 价格和发布日期做预算候选，并以 OpenAI 官方文档和已批准的官方端点探活作最终门禁。
+状态：`full-collection-partial-rate-limited`。owner 已将 0.0.1 库内与验收集范围收缩为 OpenAI-only；库内发布日期必须 ≥ 2026-04-15。本清单以 2026-09-15 拉取的 models.dev 价格和发布日期做预算候选，并以 OpenAI 官方文档和已批准的官方端点探活作最终门禁。
 
 ## 统一口径与硬门槛
 
@@ -41,37 +41,25 @@
 
 六条成功响应合计 198 input tokens、368 output tokens（其中 89 reasoning tokens）、566 total tokens；按采购表单价与汇率折算约 ¥0.22。Pro 的 Chat 404 无 usage。该最小试点只能校验接口与短序列成本，不能线性外推正式 108-call 长序列网格。
 
-## 20 个库外开放集身份（6/6/6/2）
+## 8 个库外开放集身份（OpenAI 老世代 ≤6 + 路由 2）
 
-| 分层 / 槽位             | 厂商或部署                     | 冻结 `model` 字段                           | 家族 / 世代                   | 来源与备注                                 |
-| ----------------------- | ------------------------------ | ------------------------------------------- | ----------------------------- | ------------------------------------------ |
-| hosted-unrepresented-01 | Alibaba Cloud DashScope        | `qwen3.8-max`                               | Qwen / 3.8 Max                | 第一方 API；原库内候选转库外               |
-| hosted-unrepresented-02 | Alibaba Cloud DashScope        | `qwen3.7-max`                               | Qwen / 3.7 Max                | 第一方 API；原库内候选转库外               |
-| hosted-unrepresented-03 | Alibaba Cloud DashScope        | `qwen3.7-plus`                              | Qwen / 3.7 Plus               | 第一方 API；原库内候选转库外               |
-| hosted-unrepresented-04 | Google                         | `gemini-3.8-flash`                          | Gemini / 3.8 Flash            | 第一方 API；原库内候选转库外               |
-| hosted-unrepresented-05 | Google                         | `gemini-3.7-flash`                          | Gemini / 3.7 Flash            | 第一方 API；原库内候选转库外               |
-| hosted-unrepresented-06 | Google                         | `gemini-3.5-flash-lite`                     | Gemini / 3.5 Flash Lite       | 第一方 API；原库内候选转库外               |
-| near-negative-01        | OpenAI                         | `gpt-5.4-2026-03-05`                        | OpenAI / 5.4 snapshot         | 官方快照；库内窗口外近邻                   |
-| near-negative-02        | OpenAI                         | `gpt-5.4-mini-2026-03-17`                   | OpenAI / 5.4 Mini snapshot    | 官方快照；库内窗口外近邻                   |
-| near-negative-03        | OpenAI                         | `gpt-5.4-nano-2026-03-17`                   | OpenAI / 5.4 nano snapshot    | 官方快照；库内窗口外近邻                   |
-| near-negative-04        | OpenAI                         | `gpt-5.2-2025-12-11`                        | OpenAI / 5.2 snapshot         | 官方快照；库内旧世代近邻                   |
-| near-negative-05        | OpenAI                         | `gpt-5.1-2025-11-13`                        | OpenAI / 5.1 snapshot         | 官方快照；库内旧世代近邻                   |
-| near-negative-06        | OpenAI                         | `gpt-4.1-2025-04-14`                        | OpenAI / 4.1 snapshot         | 官方快照；非 reasoning 近邻                |
-| local-open-01           | Qwen/Hugging Face              | `Qwen/Qwen3-4B`                             | Qwen / 3 4B instruct          | 固定 revision；BF16；禁量化                |
-| local-open-02           | Google/Hugging Face            | `google/gemma-3-4b-it`                      | Gemma / 3 4B IT               | BF16；禁量化                               |
-| local-open-03           | Microsoft/Hugging Face         | `microsoft/Phi-4-mini-instruct`             | Phi / 4 mini                  | 固定 revision；FP16/BF16；禁量化           |
-| local-open-04           | Hugging Face TB                | `HuggingFaceTB/SmolLM2-1.7B-Instruct`       | SmolLM / 2 1.7B               | 固定 revision；BF16；禁量化                |
-| local-open-05           | DeepSeek/Hugging Face          | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | DeepSeek Distill / R1 1.5B    | 固定 revision；BF16；禁量化                |
-| local-open-06           | Meta/Hugging Face              | `meta-llama/Llama-3.2-3B-Instruct`          | Llama / 3.2 3B                | BF16；禁量化                               |
-| router-mixture-01       | M-Trace independent deployment | `mtrace-router-qwen25-tinyllama-v1`         | routing/mixture / fixed 50:50 | seed-deterministic routing；构造即 unknown |
-| router-mixture-02       | M-Trace independent deployment | `mtrace-router-stablelm-phi35-v1`           | routing/mixture / fixed 50:50 | seed-deterministic routing；构造即 unknown |
+| 分层 / 槽位      | 厂商或部署          | 冻结 `model` 字段         | 家族 / 世代                | 来源与备注                                |
+| ---------------- | ------------------- | ------------------------- | -------------------------- | ----------------------------------------- |
+| near-negative-01 | OpenAI              | `gpt-5.4-2026-03-05`      | OpenAI / 5.4 snapshot      | 官方快照；库内窗口外近邻                  |
+| near-negative-02 | OpenAI              | `gpt-5.4-mini-2026-03-17` | OpenAI / 5.4 Mini snapshot | 官方快照；库内窗口外近邻                  |
+| near-negative-03 | OpenAI              | `gpt-5.4-nano-2026-03-17` | OpenAI / 5.4 nano snapshot | 官方快照；库内窗口外近邻                  |
+| near-negative-04 | OpenAI              | `gpt-5.2-2025-12-11`      | OpenAI / 5.2 snapshot      | 官方快照；库内旧世代近邻                  |
+| near-negative-05 | OpenAI              | `gpt-5.1-2025-11-13`      | OpenAI / 5.1 snapshot      | 官方快照；库内旧世代近邻                  |
+| near-negative-06 | OpenAI              | `gpt-4.1-2025-04-14`      | OpenAI / 4.1 snapshot      | 官方快照；非 reasoning 近邻               |
+| routing-01       | `all-api.ccode.dev` | `routing-slot-01`         | OpenAI route / unknown     | 直连路由端点；永不入 bank，构造即 unknown |
+| routing-02       | `all-api.ccode.dev` | `routing-slot-02`         | OpenAI route / unknown     | 直连路由端点；永不入 bank，构造即 unknown |
 
 库内/库外不得出现 alias、snapshot 或量化变体重叠。任何型号、revision、分层或路由规则变化都必须先重算 `acceptance-manifest.json` 的 `contentHash`；采集后禁止按阈值表现换身份。
 
 ## 成本与决策点
 
 - 正式一轮为 108 calls/identity，即每模型约 9,000 输入 + 81,000 输出 token；按未四舍五入的单重复估算乘 3，6 个库内模型的基础金额约 **¥173.10/轮**，其中 `gpt-5.5-pro` 约 **¥106.18/轮**。
-- 库内基础金额按 1.5 重试系数和两轮计算为 **¥519.30**。加上尚未实测的 reasoning 隐藏 token 上浮、库外 20 身份（各 9 calls，约 ¥5）与试点，预期总额修正为 **¥550–850**，硬顶仍为 **¥1200**。
+- 库内基础金额按 1.5 重试系数和两轮计算为 **¥519.30**。加上尚未实测的 reasoning 隐藏 token 上浮、OpenAI 老世代 ≤6 + 路由 2 身份与试点，预期总额修正为 **¥550–850**，硬顶仍为 **¥1200**。
 - `gpt-5.5-pro` 占基础成本约 61%，其真实 reasoning token 和稳定产出能力是试点的首要成本门槛。若试点成本异常或输出不可解析，停止并报告，不自行删除、替换或降采样。
 - 预算估算基于候选数据，并非已发生账单；全量前以官方 usage 实测更新预算。
 

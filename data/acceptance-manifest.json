@@ -37,10 +37,18 @@
       "totalTokens": 83903,
       "estimatedCny": 106.99
     },
-    "stopReason": "HTTP 429 persisted after bounded retries and a 55-second backoff; no partial records promoted to the bank"
+    "stopReason": "HTTP 429 persisted after bounded retries and a 55-second backoff; no partial records promoted to the bank",
+    "recoveryProbes": {
+      "model": "gpt-5.6-luna",
+      "attempts": 2,
+      "statuses": [429, 429],
+      "intervalSeconds": 8,
+      "gate": "consecutive-two-200",
+      "passed": false
+    }
   },
   "selectionFrozenAt": "2026-09-15",
-  "contentHash": "sha256:2755ea96ab1fe24c1d4615a73224906df4bb7069ad27e9ce89606eb96b451bed",
+  "contentHash": "sha256:c813a07ab12903d2e43ade2bc4f09e03e9653c45a19ba77421d5adfaca1ae487",
   "rules": {
     "minimumLibraryModels": 6,
     "minimumResponsesPerModel": 3,
@@ -50,7 +58,9 @@
     "noQuantizedInBankVariant": true,
     "routingGate": "unknown-by-construction",
     "pilotAllModelsMustPass": true,
-    "pilotFailureAction": "stop-and-report; no substitution without owner decision"
+    "pilotFailureAction": "stop-and-report; no substitution without owner decision",
+    "openSetModelCount": 8,
+    "openSetStrata": "OpenAI older-generation near negatives <=6 plus routing 2"
   },
   "probePolicy": {
     "listSource": "GET https://api.openai.com/v1/models with platform.openai.com official key",
@@ -85,7 +95,9 @@
       "transport"
     ],
     "driftReviewAfterDays": 14,
-    "driftAction": "issue-new-bankVersion; never overwrite prior bank"
+    "driftAction": "issue-new-bankVersion; never overwrite prior bank",
+    "routingSource": "all-api.ccode.dev",
+    "routingIdentity": "unknown-by-construction; direct transport only; never enters bank"
   },
   "libraryModels": [
     {
@@ -222,60 +234,6 @@
   ],
   "slots": [
     {
-      "slotId": "hosted-unrepresented-01",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "Alibaba Cloud DashScope",
-      "modelId": "qwen3.8-max",
-      "family": "Qwen",
-      "generation": "3.8 Max",
-      "source": "official-api"
-    },
-    {
-      "slotId": "hosted-unrepresented-02",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "Alibaba Cloud DashScope",
-      "modelId": "qwen3.7-max",
-      "family": "Qwen",
-      "generation": "3.7 Max",
-      "source": "official-api"
-    },
-    {
-      "slotId": "hosted-unrepresented-03",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "Alibaba Cloud DashScope",
-      "modelId": "qwen3.7-plus",
-      "family": "Qwen",
-      "generation": "3.7 Plus",
-      "source": "official-api"
-    },
-    {
-      "slotId": "hosted-unrepresented-04",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "Google",
-      "modelId": "gemini-3.8-flash",
-      "family": "Gemini",
-      "generation": "3.8 Flash",
-      "source": "official-api"
-    },
-    {
-      "slotId": "hosted-unrepresented-05",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "Google",
-      "modelId": "gemini-3.7-flash",
-      "family": "Gemini",
-      "generation": "3.7 Flash",
-      "source": "official-api"
-    },
-    {
-      "slotId": "hosted-unrepresented-06",
-      "stratum": "unrepresented-hosted-family",
-      "vendor": "Google",
-      "modelId": "gemini-3.5-flash-lite",
-      "family": "Gemini",
-      "generation": "3.5 Flash Lite",
-      "source": "official-api"
-    },
-    {
       "slotId": "near-negative-01",
       "stratum": "represented-family-unrepresented-generation",
       "vendor": "OpenAI",
@@ -330,147 +288,29 @@
       "source": "official-api"
     },
     {
-      "slotId": "local-open-01",
-      "stratum": "open-weight-local",
-      "vendor": "Qwen/Hugging Face",
-      "modelId": "Qwen/Qwen3-4B",
-      "family": "Qwen",
-      "generation": "3 4B instruct",
-      "source": "independent-deployment",
-      "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
-      "serving": "BF16 safetensors; no quantization"
+      "slotId": "routing-01",
+      "stratum": "routing-endpoint",
+      "vendor": "OpenAI-compatible route",
+      "modelId": "routing-slot-01",
+      "family": "OpenAI route",
+      "generation": "unknown",
+      "source": "routing-endpoint",
+      "endpointHost": "all-api.ccode.dev",
+      "identitySemantics": "unknown-by-construction; never a bank identity"
     },
     {
-      "slotId": "local-open-02",
-      "stratum": "open-weight-local",
-      "vendor": "Google/Hugging Face",
-      "modelId": "google/gemma-3-4b-it",
-      "family": "Gemma",
-      "generation": "3 4B IT",
-      "source": "independent-deployment",
-      "serving": "BF16 safetensors; no quantization"
-    },
-    {
-      "slotId": "local-open-03",
-      "stratum": "open-weight-local",
-      "vendor": "Microsoft/Hugging Face",
-      "modelId": "microsoft/Phi-4-mini-instruct",
-      "family": "Phi",
-      "generation": "4 mini",
-      "source": "independent-deployment",
-      "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
-      "serving": "FP16/BF16 safetensors; no quantization"
-    },
-    {
-      "slotId": "local-open-04",
-      "stratum": "open-weight-local",
-      "vendor": "Hugging Face TB",
-      "modelId": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
-      "family": "SmolLM",
-      "generation": "2 1.7B",
-      "source": "independent-deployment",
-      "revision": "31b70e2e869a7173562077fd711b654946d38674",
-      "serving": "BF16 safetensors; no quantization"
-    },
-    {
-      "slotId": "local-open-05",
-      "stratum": "open-weight-local",
-      "vendor": "DeepSeek/Hugging Face",
-      "modelId": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-      "family": "DeepSeek Distill",
-      "generation": "R1 1.5B",
-      "source": "independent-deployment",
-      "revision": "ad9f0ae0864d7fbcd1cd905e3c6c5b069cc8b562",
-      "serving": "BF16 safetensors; no quantization"
-    },
-    {
-      "slotId": "local-open-06",
-      "stratum": "open-weight-local",
-      "vendor": "Meta/Hugging Face",
-      "modelId": "meta-llama/Llama-3.2-3B-Instruct",
-      "family": "Llama",
-      "generation": "3.2 3B",
-      "source": "independent-deployment",
-      "serving": "BF16 safetensors; no quantization"
-    },
-    {
-      "slotId": "router-mixture-01",
-      "stratum": "routing-or-mixture",
-      "vendor": "M-Trace independent deployment",
-      "modelId": "mtrace-router-qwen25-tinyllama-v1",
-      "family": "routing/mixture",
-      "generation": "fixed 50:50",
-      "source": "independent-deployment",
-      "backingModels": [
-        "Qwen/Qwen2.5-1.5B-Instruct",
-        "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-      ],
-      "serving": "deterministic seed routing; unknown by construction"
-    },
-    {
-      "slotId": "router-mixture-02",
-      "stratum": "routing-or-mixture",
-      "vendor": "M-Trace independent deployment",
-      "modelId": "mtrace-router-stablelm-phi35-v1",
-      "family": "routing/mixture",
-      "generation": "fixed 50:50",
-      "source": "independent-deployment",
-      "backingModels": [
-        "stabilityai/stablelm-2-zephyr-1_6b",
-        "microsoft/Phi-3.5-mini-instruct"
-      ],
-      "serving": "deterministic seed routing; unknown by construction"
+      "slotId": "routing-02",
+      "stratum": "routing-endpoint",
+      "vendor": "OpenAI-compatible route",
+      "modelId": "routing-slot-02",
+      "family": "OpenAI route",
+      "generation": "unknown",
+      "source": "routing-endpoint",
+      "endpointHost": "all-api.ccode.dev",
+      "identitySemantics": "unknown-by-construction; never a bank identity"
     }
   ],
   "availability": [
-    {
-      "slotId": "hosted-unrepresented-01",
-      "modelId": "qwen3.8-max",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-02",
-      "modelId": "qwen3.7-max",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-03",
-      "modelId": "qwen3.7-plus",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-04",
-      "modelId": "gemini-3.8-flash",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-05",
-      "modelId": "gemini-3.7-flash",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
-    {
-      "slotId": "hosted-unrepresented-06",
-      "modelId": "gemini-3.5-flash-lite",
-      "idStatus": "stable-model-id",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-budget"
-    },
     {
       "slotId": "near-negative-01",
       "modelId": "gpt-5.4-2026-03-05",
@@ -520,68 +360,24 @@
       "probeResult": "pending-budget"
     },
     {
-      "slotId": "local-open-01",
-      "modelId": "Qwen/Qwen3-4B",
-      "idStatus": "pinned-hf-revision",
+      "slotId": "routing-01",
+      "modelId": "routing-slot-01",
+      "idStatus": "identity-unknown-by-construction",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-local-runtime"
+      "probeResult": "pending-route-probe",
+      "transport": "direct",
+      "endpointHost": "all-api.ccode.dev"
     },
     {
-      "slotId": "local-open-02",
-      "modelId": "google/gemma-3-4b-it",
-      "idStatus": "pinned-hf-revision",
+      "slotId": "routing-02",
+      "modelId": "routing-slot-02",
+      "idStatus": "identity-unknown-by-construction",
       "previewOrFastIteration": false,
       "probeAt": null,
-      "probeResult": "pending-local-runtime"
-    },
-    {
-      "slotId": "local-open-03",
-      "modelId": "microsoft/Phi-4-mini-instruct",
-      "idStatus": "pinned-hf-revision",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-local-runtime"
-    },
-    {
-      "slotId": "local-open-04",
-      "modelId": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
-      "idStatus": "pinned-hf-revision",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-local-runtime"
-    },
-    {
-      "slotId": "local-open-05",
-      "modelId": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-      "idStatus": "pinned-hf-revision",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-local-runtime"
-    },
-    {
-      "slotId": "local-open-06",
-      "modelId": "meta-llama/Llama-3.2-3B-Instruct",
-      "idStatus": "pinned-hf-revision",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-local-runtime"
-    },
-    {
-      "slotId": "router-mixture-01",
-      "modelId": "mtrace-router-qwen25-tinyllama-v1",
-      "idStatus": "fixed-independent-deployment",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-local-runtime"
-    },
-    {
-      "slotId": "router-mixture-02",
-      "modelId": "mtrace-router-stablelm-phi35-v1",
-      "idStatus": "fixed-independent-deployment",
-      "previewOrFastIteration": false,
-      "probeAt": null,
-      "probeResult": "pending-local-runtime"
+      "probeResult": "pending-route-probe",
+      "transport": "direct",
+      "endpointHost": "all-api.ccode.dev"
     }
   ]
 }

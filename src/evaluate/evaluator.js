@@ -246,6 +246,7 @@ export function evaluateOutOfLibrary(inLibrary, outOfLibrary, thresholds) {
     ? modelRates.reduce((sum, item) => sum + item.unknownRate, 0) /
       modelRates.length
     : null;
+  const expectedModelCount = thresholds.expectedOpenSetModels ?? 8;
   return {
     sampleCount: predictions.length,
     distinctModels: byModel.size,
@@ -262,7 +263,7 @@ export function evaluateOutOfLibrary(inLibrary, outOfLibrary, thresholds) {
     modelRates,
     eligibility,
     pass:
-      byModel.size === 20 &&
+      byModel.size === expectedModelCount &&
       eligibility.every((item) => item.eligible) &&
       misattributed / predictions.length <= 0.05 &&
       predictions.filter((item) => item.prediction.decision === 'unknown')
@@ -369,7 +370,14 @@ export function evaluateAttacks(samples, thresholds, rng = Math.random) {
 
 export function evaluateDataset(
   dataset,
-  { maxDistance, minMargin, minRelativeMargin, seed = 73013, rng },
+  {
+    maxDistance,
+    minMargin,
+    minRelativeMargin,
+    expectedOpenSetModels = 8,
+    seed = 73013,
+    rng,
+  },
 ) {
   if (
     !Number.isFinite(maxDistance) ||
@@ -386,7 +394,12 @@ export function evaluateDataset(
   if (!dataset || !Array.isArray(dataset.samples)) {
     throw new TypeError('dataset.samples must be an array');
   }
-  const thresholds = { maxDistance, minMargin, minRelativeMargin };
+  const thresholds = {
+    maxDistance,
+    minMargin,
+    minRelativeMargin,
+    expectedOpenSetModels,
+  };
   const random = rng ?? seededRandom(seed);
   const inLibrary = scoredSamples(
     dataset.samples.filter((sample) => sample.split === 'in-library'),

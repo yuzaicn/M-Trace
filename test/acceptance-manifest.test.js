@@ -21,8 +21,8 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
     'gpt-6-astra': 0,
   });
   assert.equal(manifest.libraryModels.length, 6);
-  assert.equal(manifest.slots.length, 20);
-  assert.equal(manifest.availability.length, 20);
+  assert.equal(manifest.slots.length, 8);
+  assert.equal(manifest.availability.length, 8);
   assert.deepEqual(
     manifest.libraryModels.map(({ modelId, family }) => [modelId, family]),
     [
@@ -44,10 +44,8 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
       Object.entries(strata).map(([stratum, slots]) => [stratum, slots.length]),
     ),
     {
-      'unrepresented-hosted-family': 6,
       'represented-family-unrepresented-generation': 6,
-      'open-weight-local': 6,
-      'routing-or-mixture': 2,
+      'routing-endpoint': 2,
     },
   );
 
@@ -59,6 +57,12 @@ test('acceptance manifest hash, generation groups, strata, and identities are fr
   assert.equal(
     manifest.slots.some((slot) => libraryIdentities.has(slot.modelId)),
     false,
+  );
+  assert.ok(
+    manifest.slots.every(
+      ({ vendor, source }) =>
+        vendor === 'OpenAI' || source === 'routing-endpoint',
+    ),
   );
   assert.deepEqual(
     manifest.availability.map(({ slotId, modelId }) => [slotId, modelId]),

@@ -19,7 +19,7 @@ if (
   process.argv.includes('--help')
 ) {
   console.log(
-    'Usage: m-trace-evaluate --input dataset.json --max-distance VALUE --min-margin VALUE --min-relative-margin VALUE [--seed 73013]',
+    'Usage: m-trace-evaluate --input dataset.json --max-distance VALUE --min-margin VALUE --min-relative-margin VALUE [--expected-open-set-models 8] [--seed 73013]',
   );
   process.exit(process.argv.includes('--help') ? 0 : 2);
 }
@@ -28,6 +28,7 @@ const report = evaluateDataset(dataset, {
   maxDistance: Number(maxDistance),
   minMargin: Number(minMargin),
   minRelativeMargin: Number(minRelativeMargin),
+  expectedOpenSetModels: Number(option('--expected-open-set-models', '8')),
   seed: Number(option('--seed', '73013')),
 });
 console.log(JSON.stringify(report, null, 2));

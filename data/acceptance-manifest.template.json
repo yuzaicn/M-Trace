@@ -5,39 +5,11 @@
   "rules": {
     "minimumResponsesPerModel": 3,
     "minimumEnvironmentsPerModel": 3,
-    "calibrationUseForbidden": true
+    "calibrationUseForbidden": true,
+    "openSetModelCount": 8,
+    "openSetStrata": "OpenAI older-generation near negatives <=6 plus routing 2"
   },
   "slots": [
-    {
-      "slotId": "hosted-unrepresented-01",
-      "stratum": "unrepresented-hosted-family",
-      "modelId": null
-    },
-    {
-      "slotId": "hosted-unrepresented-02",
-      "stratum": "unrepresented-hosted-family",
-      "modelId": null
-    },
-    {
-      "slotId": "hosted-unrepresented-03",
-      "stratum": "unrepresented-hosted-family",
-      "modelId": null
-    },
-    {
-      "slotId": "hosted-unrepresented-04",
-      "stratum": "unrepresented-hosted-family",
-      "modelId": null
-    },
-    {
-      "slotId": "hosted-unrepresented-05",
-      "stratum": "unrepresented-hosted-family",
-      "modelId": null
-    },
-    {
-      "slotId": "hosted-unrepresented-06",
-      "stratum": "unrepresented-hosted-family",
-      "modelId": null
-    },
     {
       "slotId": "near-negative-01",
       "stratum": "represented-family-unrepresented-generation",
@@ -69,43 +41,13 @@
       "modelId": null
     },
     {
-      "slotId": "local-open-01",
-      "stratum": "open-weight-local",
+      "slotId": "routing-01",
+      "stratum": "routing-endpoint",
       "modelId": null
     },
     {
-      "slotId": "local-open-02",
-      "stratum": "open-weight-local",
-      "modelId": null
-    },
-    {
-      "slotId": "local-open-03",
-      "stratum": "open-weight-local",
-      "modelId": null
-    },
-    {
-      "slotId": "local-open-04",
-      "stratum": "open-weight-local",
-      "modelId": null
-    },
-    {
-      "slotId": "local-open-05",
-      "stratum": "open-weight-local",
-      "modelId": null
-    },
-    {
-      "slotId": "local-open-06",
-      "stratum": "open-weight-local",
-      "modelId": null
-    },
-    {
-      "slotId": "router-mixture-01",
-      "stratum": "routing-or-mixture",
-      "modelId": null
-    },
-    {
-      "slotId": "router-mixture-02",
-      "stratum": "routing-or-mixture",
+      "slotId": "routing-02",
+      "stratum": "routing-endpoint",
       "modelId": null
     }
   ]

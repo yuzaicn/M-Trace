@@ -82,11 +82,12 @@ test('attack matrix contains every required numeric attack and separate wrapper 
   );
 });
 
-test('evaluation runs leave-one-environment-out, 20-model open set, and split robustness scores', () => {
+test('evaluation runs leave-one-environment-out, configurable open set, and split robustness scores', () => {
   const report = evaluateDataset(dataset(), {
     maxDistance: 0.04,
     minMargin: 0.005,
     minRelativeMargin: 0.01,
+    expectedOpenSetModels: 20,
     rng: rng(),
   });
   assert.equal(report.closedSet.environments.length, 3);
