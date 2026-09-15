@@ -6,6 +6,7 @@ This document freezes the data formats, version axes, sampling semantics, and ve
 
 Changelog:
 
+- **2.2.0** — entry identity is defined as the provider's current pointer (dateless model ID), and the acceptance set is rescoped to OpenAI-only (prior-generation near neighbors ≤ 6 plus 2 routing endpoints; cross-provider and open-weight strata removed from 0.0.1) with the open-set gate re-expressed over the actually available negatives and a mandatory validation-boundary disclosure.
 - **2.1.0** — adds the `openai-responses` request shape (for models not served on Chat Completions) and the mandatory `transport` provenance field with the tunnel-egress rule. Amended before any bank artifact exists; no collected data predates it.
 - **2.0.0** — initial data/protocol-layer freeze.
 
@@ -50,6 +51,7 @@ Records never contain API keys, authorization headers, base URLs, or local paths
 
 Additions and rulings on top of schema 1.0:
 
+- **Entry identity is the provider's current pointer (2.2.0):** the dateless model ID. It denotes "whatever the provider currently serves under this name", never a pinned build. The response-echoed `model` and `systemFingerprint` in provenance (§3) record what the pointer resolved to at collection time; pointer drift is expected, watched by periodic re-probe, and absorbed by `bankVersion` releases (§8). Report copy must follow this semantics and must not imply a pinned build. Dated snapshot IDs never enter `aliases` (a snapshot-of relation is not an alias relation); when known, the resolved snapshot lives only in provenance.
 - **`modelFamily` is the generation group, not the vendor.** For the 0.0.1 OpenAI-only bank the closed set of values is `gpt-5.5`, `gpt-5.6`, `gpt-6`. Vendor lives in separate metadata (`vendor`). Per-model marketing tiers ("5.6 Sol", "5.6 Terra") are informational metadata and must not be used as the grouping key: a family with exactly one member per model would make the family verdict either redundant or a vendor-level claim, and vendor-level attribution does not exist in this product (§5).
 - **Alias rule:** suspected aliases are probed and distribution-compared; a confirmed alias becomes one entry with an `aliases` list. An alias must never appear as a second entry or an acceptance slot.
 - **`calibration` block (per entry):**
@@ -92,11 +94,16 @@ where `d(1) ≤ d(2)` are the two smallest candidate distances, `margin = d(2) �
 - `params.temperature` is removed from every challenge family; the suite carries `samplingSource: 'provider-default'` instead.
 - The symbol family is **collected but not scored** in 0.0.1: no gate or report conclusion may consume it. It is retained so that a future scorer can calibrate against data from the same provider-default configuration epoch without re-collection. This is a separately strikeable cost line item.
 
-## 7. Acceptance manifest
+## 7. Acceptance manifest (rescoped in 2.2.0: OpenAI-only)
 
-- Strata stay 6 / 6 / 6 / 2. Near-neighbor negatives are prior OpenAI generations; unrepresented hosted families come from non-OpenAI first-party endpoints.
-- The manifest must carry the canonical `modelFamily` values of §4 so that stratum definitions ("represented family, unrepresented generation") resolve against the same grouping the verdict layer uses.
-- Note for the re-freeze: under §2, acceptance sampling no longer requires provider-side temperature support, so hosted-family slots are not limited to temperature-controllable vendors; provider diversity in that stratum is a selection-quality decision, not a technical constraint.
+The 0.0.1 acceptance set is OpenAI-only by owner scope decision. The former 6/6/6/2 stratification is superseded:
+
+- **Prior-generation near neighbors, up to 6 slots** — dateless OpenAI models of generations absent from the bank (gpt-5.4 / 5.2 / 5.1 / 4.1-class). These are the highest-value negatives (the realistic fraud scenario: an older generation resold as a newer one) and the hardest for the open-set gate. Slot availability depends on the key's project exposing those models; unavailable slots are recorded as unavailable, never silently substituted.
+- **Routing endpoints, 2 slots** — endpoints whose backing model may vary. Identity is unknown by construction: samples are labeled `routing-endpoint / identity-unknown-by-construction`, are **never** promoted into the bank, and never serve as negatives that require ground truth. Their JSONL records carry the actual `transport` used; the §2 official-collection guard does not apply to them (they are not bank collection), but provenance completeness does.
+- **Removed from 0.0.1**: the cross-provider hosted stratum and the open-weight local stratum. They may return in a later re-freeze; removal is a scope decision, not a technical judgment.
+- **Gate re-expression**: the open-set targets of §5 (misattribution ≤ 5 %, unknown ≥ 95 %, at most one identity with any accepted attribution) apply over the acceptance identities actually available. If the near-neighbor slots are unavailable, acceptance runs on the routing slots alone and the release documentation must state that explicitly.
+- **Mandatory validation-boundary disclosure** (report and README, must not be softened): 0.0.1's rejection capability is empirically validated **within the OpenAI ecosystem only**; cross-provider rejection (e.g. not mistaking a Qwen or Claude endpoint for an in-bank model) relies on the absolute-credibility layer's offline analysis and has not been tested online. A smaller acceptance set also reduces the statistical power of the ≤ 5 % gate; the identity count behind the reported rate must appear next to the rate.
+- The manifest must carry the canonical `modelFamily` values of §4 so that stratum definitions resolve against the same grouping the verdict layer uses.
 - Any manifest change recomputes its hash and re-runs the zero-overlap and alias checks before collection.
 
 ## 8. Process gates
